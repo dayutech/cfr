@@ -9,6 +9,103 @@ To use, simply run the specific version jar, with the class name(s) you want to 
 
 Alternately, to decompile an entire jar, simply provide the jar path, and if you want to emit files (which you probably do!) add `--outputdir /tmp/putithere`.
 
+## Class Filtering
+
+CFR supports filtering out known third-party library classes during decompilation. This can significantly speed up decompilation of large JAR files by skipping classes from common libraries like Spring, Apache Commons, Guava, etc.
+
+### Enable Class Filtering
+
+Use the `--enableclassfilter` option to enable class filtering:
+
+```
+java -jar cfr.jar myapp.jar --enableclassfilter
+```
+
+### Built-in Filter Rules
+
+CFR includes built-in filter rules for common third-party libraries:
+
+- **Spring Framework**: `org.springframework.*`
+- **Apache Projects**: `org.apache.commons.*`, `org.apache.logging.*`, `org.apache.log4j.*`, `org.apache.maven.*`, `org.apache.http.*`, `org.apache.kafka.*`
+- **Google Libraries**: `com.google.common.*`, `com.google.gson.*`, `com.google.code.*`
+- **Logging Frameworks**: `org.slf4j.*`, `ch.qos.logback.*`
+- **Network/Reactive**: `io.netty.*`, `io.reactivex.*`, `rx.*`
+- **Testing Frameworks**: `org.junit.*`, `org.mockito.*`, `org.hamcrest.*`
+- **JSON/ORM**: `com.fasterxml.jackson.*`, `org.hibernate.*`
+- **Java Standard Library**: `javax.*`, `java.*`, `sun.*`, `com.sun.*`, `jdk.*`
+- **Standard Organizations**: `org.w3c.*`, `org.xml.*`, `org.omg.*`, `org.ietf.*`, `org.jcp.*`
+
+### Custom Filter Configuration
+
+You can add custom filter rules by creating a configuration file named `cfr_class_filter.conf`. CFR searches for this file in the following locations (in order):
+
+1. Current working directory
+2. CFR JAR directory
+
+Both configuration files are merged with the built-in rules.
+
+#### Configuration File Format
+
+The configuration file supports two sections: `[jar]` and `[class]`.
+
+```
+# This is a comment
+
+# JAR file name prefix rules - filter entire JARs
+[jar]
+spring-core
+spring-context
+guava
+commons-lang3
+jackson-databind
+
+# Class name prefix rules - filter specific classes
+[class]
+com.mycompany.internal
+com.mycompany.thirdparty
+org.mylibrary
+```
+
+**Section Details:**
+
+- **`[jar]` section**: JAR file name prefix matching rules
+  - Filters entire JAR files based on their names (without version suffixes)
+  - Example: `spring-core` will match `spring-core-5.3.0.jar`, `spring-core-6.0.0.jar`
+  - Matching is case-insensitive
+  - Version numbers are automatically handled (e.g., `guava` matches `guava-31.1-jre.jar`)
+
+- **`[class]` section**: Full class name prefix matching rules
+  - Filters specific classes based on their fully qualified names
+  - Example: `org.springframework` will match `org.springframework.core.xxx`
+  - Uses standard Java package naming conventions
+
+**Legacy Format (Backward Compatible):**
+
+Lines without a section header are treated as class name prefix rules:
+
+```
+# Legacy format - treated as class rules
+com.mycompany.internal
+org.mylibrary
+```
+
+**File Format Rules:**
+
+- Each line should contain one rule
+- Lines starting with `#` are treated as comments
+- Empty lines are ignored
+- Section headers (`[jar]`, `[class]`) are case-insensitive
+
+### Example Usage
+
+```bash
+# Decompile a JAR with class filtering enabled
+java -jar cfr.jar myapp.jar --enableclassfilter --outputdir ./output
+
+# View help for the filter option
+java -jar cfr.jar --help enableclassfilter
+```
+
 # Getting CFR
 
 The main site for CFR is <a href="https://www.benf.org/other/cfr">benf.org/other/cfr</a>, where releases are available with a bunch of rambling musings from the author.

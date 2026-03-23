@@ -13,6 +13,7 @@ import org.benf.cfr.reader.state.TypeUsageInformation;
 import org.benf.cfr.reader.util.AnalysisType;
 import org.benf.cfr.reader.util.CannotLoadClassException;
 import org.benf.cfr.reader.util.CfrVersionInfo;
+import org.benf.cfr.reader.util.ClassFilter;
 import org.benf.cfr.reader.util.MiscConstants;
 import org.benf.cfr.reader.util.MiscUtils;
 import org.benf.cfr.reader.util.collections.Functional;
@@ -117,6 +118,17 @@ class Driver {
         ObfuscationMapping mapping = MappingFactory.get(options, dcCommonState);
         dcCommonState = new DCCommonState(dcCommonState, mapping);
 
+        // 创建类过滤器（在JAR级别创建一次，避免重复加载配置）
+        final boolean enableClassFilter = options.getOption(OptionsImpl.ENABLE_CLASS_FILTER);
+        final ClassFilter classFilter = new ClassFilter(enableClassFilter);
+
+        // 在加载JAR之前检查JAR级别过滤
+        classFilter.setCurrentJar(path);
+        if (classFilter.isCurrentJarFiltered()) {
+            // JAR被过滤，直接返回，不加载JAR内容
+            return;
+        }
+
         SummaryDumper summaryDumper = null;
         try {
             ProgressDumper progressDumper = dumperFactory.getProgressDumper();
@@ -136,7 +148,7 @@ class Driver {
                 versionsSeen.add(forVersion);
                 List<Integer> localVersionsSeen = ListFactory.newList(versionsSeen);
                 List<JavaTypeInstance> types = entry.getValue();
-                doJarVersionTypes(forVersion, localVersionsSeen, dcCommonState, dumperFactory, illegalIdentifierDump, summaryDumper, progressDumper, types);
+                doJarVersionTypes(forVersion, localVersionsSeen, dcCommonState, dumperFactory, illegalIdentifierDump, summaryDumper, progressDumper, types, path, classFilter);
             }
         } catch (Exception e) {
             dumperFactory.getExceptionDumper().noteException(path, "Exception analysing jar", e);
@@ -185,11 +197,13 @@ class Driver {
         return collisions;
     }
 
-    private static void doJarVersionTypes(int forVersion, final List<Integer> versionsSeen, DCCommonState dcCommonState, DumperFactory dumperFactory, IllegalIdentifierDump illegalIdentifierDump, SummaryDumper summaryDumper, ProgressDumper progressDumper, List<JavaTypeInstance> types) {
+    private static void doJarVersionTypes(int forVersion, final List<Integer> versionsSeen, DCCommonState dcCommonState, DumperFactory dumperFactory, IllegalIdentifierDump illegalIdentifierDump, SummaryDumper summaryDumper, ProgressDumper progressDumper, List<JavaTypeInstance> types, String jarPath, ClassFilter classFilter) {
         Options options = dcCommonState.getOptions();
         final boolean lomem = options.getOption(OptionsImpl.LOMEM);
         final Predicate<String> matcher = MiscUtils.mkRegexFilter(options.getOption(OptionsImpl.JAR_FILTER), true);
         final boolean silent = options.getOption(OptionsImpl.SILENT);
+
+        // JAR级别过滤已在doJar中检查，此处不再重复检查
 
         // If we're dumping a class which is SPECIFIC to a version, i.e. other than 0, we override the common state
         // so that it will look up in all version going back from that.
@@ -242,6 +256,12 @@ class Driver {
                 // Don't explicitly dump inner classes.  But make sure we ask the CLASS if it's
                 // an inner class, rather than using the name, as scala tends to abuse '$'.
                 if (c.isInnerClass()) {
+                    d = null;
+                    continue;
+                }
+                // Check if this class should be filtered
+                String className = type.getRawName();
+                if (classFilter.shouldFilter(className)) {
                     d = null;
                     continue;
                 }

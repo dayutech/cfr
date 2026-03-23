@@ -1,7 +1,6 @@
 package org.benf.cfr.reader.util;
 
 import org.benf.cfr.reader.Main;
-import org.benf.cfr.reader.util.output.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -12,7 +11,6 @@ import java.net.URL;
 import java.security.ProtectionDomain;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.logging.Logger;
 
 /**
  * 类过滤配置加载器
@@ -38,8 +36,6 @@ import java.util.logging.Logger;
  * 注释：以 # 开头的行视为注释，空行会被忽略
  */
 public class ClassFilterConfig {
-
-    private static final Logger LOGGER = LoggerFactory.create(ClassFilterConfig.class);
 
     /**
      * 配置文件名称
@@ -115,9 +111,9 @@ public class ClassFilterConfig {
                 return file.getAbsolutePath() + File.separator + CONFIG_FILE_NAME;
             }
         } catch (URISyntaxException e) {
-            LOGGER.warning("无法确定CFR目录位置: " + e.getMessage());
+            System.out.println("警告: 无法确定CFR目录位置: " + e.getMessage());
         } catch (SecurityException e) {
-            LOGGER.warning("安全限制，无法获取CFR目录位置: " + e.getMessage());
+            System.out.println("警告: 安全限制，无法获取CFR目录位置: " + e.getMessage());
         }
         return null;
     }
@@ -125,29 +121,43 @@ public class ClassFilterConfig {
     /**
      * 加载所有配置文件中的过滤规则
      * 
-     * 从工作目录和CFR目录加载配置文件，并合并所有规则。
-     * 如果配置文件不存在或读取失败，将跳过该文件并记录日志。
-     * 
      * @return 包含所有配置文件规则的FilterRules对象
      */
     public static FilterRules loadFilterRules() {
+        return loadFilterRules(false);
+    }
+
+    /**
+     * 加载所有配置文件中的过滤规则
+     * 
+     * 从工作目录和CFR目录加载配置文件，并合并所有规则。
+     * 如果配置文件不存在或读取失败，将跳过该文件。
+     * 
+     * @param silent 是否静默模式（不输出日志）
+     * @return 包含所有配置文件规则的FilterRules对象
+     */
+    public static FilterRules loadFilterRules(boolean silent) {
         FilterRules result = new FilterRules();
 
         String workingDirPath = getWorkingDirConfigPath();
-        FilterRules workingDirRules = loadConfigFromFile(workingDirPath);
+        FilterRules workingDirRules = loadConfigFromFile(workingDirPath, silent);
         if (workingDirRules.getTotalRuleCount() > 0) {
             mergeRules(result, workingDirRules);
-            LOGGER.info("从工作目录加载了 " + workingDirRules.getTotalRuleCount() + " 条过滤规则: " + workingDirPath);
+            if (!silent) {
+                System.out.println("从工作目录加载了 " + workingDirRules.getTotalRuleCount() + " 条过滤规则: " + workingDirPath);
+            }
         }
 
         String cfrDirPath = getCfrDirConfigPath();
         if (cfrDirPath != null && !cfrDirPath.equals(workingDirPath)) {
-            FilterRules cfrDirRules = loadConfigFromFile(cfrDirPath);
+            FilterRules cfrDirRules = loadConfigFromFile(cfrDirPath, silent);
             if (cfrDirRules.getTotalRuleCount() > 0) {
                 int oldCount = result.getTotalRuleCount();
                 mergeRules(result, cfrDirRules);
                 int newRules = result.getTotalRuleCount() - oldCount;
-                LOGGER.info("从CFR目录加载了 " + cfrDirRules.getTotalRuleCount() + " 条过滤规则（其中 " + newRules + " 条为新规则）: " + cfrDirPath);
+                if (!silent) {
+                    System.out.println("从CFR目录加载了 " + cfrDirRules.getTotalRuleCount() + " 条过滤规则（其中 " + newRules + " 条为新规则）: " + cfrDirPath);
+                }
             }
         }
 
@@ -169,9 +179,10 @@ public class ClassFilterConfig {
      * 配置文件格式支持两个节：[jar] 和 [class]
      * 
      * @param filePath 配置文件的完整路径
+     * @param silent 是否静默模式
      * @return 包含该文件中所有有效规则的FilterRules对象
      */
-    private static FilterRules loadConfigFromFile(String filePath) {
+    private static FilterRules loadConfigFromFile(String filePath, boolean silent) {
         FilterRules rules = new FilterRules();
         File file = new File(filePath);
 
@@ -180,7 +191,9 @@ public class ClassFilterConfig {
         }
 
         if (!file.canRead()) {
-            LOGGER.warning("无法读取配置文件: " + filePath);
+            if (!silent) {
+                System.out.println("警告: 无法读取配置文件: " + filePath);
+            }
             return rules;
         }
 
@@ -221,26 +234,34 @@ public class ClassFilterConfig {
                     if (jarPrefix != null) {
                         rules.jarPrefixRules.add(jarPrefix);
                     } else {
-                        LOGGER.warning("配置文件第 " + lineNumber + " 行包含无效的JAR前缀: " + line);
+                        if (!silent) {
+                            System.out.println("警告: 配置文件第 " + lineNumber + " 行包含无效的JAR前缀: " + line);
+                        }
                     }
                 } else if (currentSection == 2) {
                     // 类名节规则
                     if (isValidPackagePrefix(line)) {
                         rules.classPrefixRules.add(line);
                     } else {
-                        LOGGER.warning("配置文件第 " + lineNumber + " 行包含无效的类名前缀: " + line);
+                        if (!silent) {
+                            System.out.println("警告: 配置文件第 " + lineNumber + " 行包含无效的类名前缀: " + line);
+                        }
                     }
                 } else {
                     // 未指定节时的兼容处理：默认作为类名前缀
                     if (isValidPackagePrefix(line)) {
                         rules.classPrefixRules.add(line);
                     } else {
-                        LOGGER.warning("配置文件第 " + lineNumber + " 行包含无效的前缀（未指定节）: " + line);
+                        if (!silent) {
+                            System.out.println("警告: 配置文件第 " + lineNumber + " 行包含无效的前缀（未指定节）: " + line);
+                        }
                     }
                 }
             }
         } catch (IOException e) {
-            LOGGER.warning("读取配置文件时发生错误: " + filePath + " - " + e.getMessage());
+            if (!silent) {
+                System.out.println("警告: 读取配置文件时发生错误: " + filePath + " - " + e.getMessage());
+            }
         } finally {
             if (reader != null) {
                 try {

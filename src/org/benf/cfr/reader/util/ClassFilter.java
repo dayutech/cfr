@@ -1,10 +1,7 @@
 package org.benf.cfr.reader.util;
 
-import org.benf.cfr.reader.util.output.LoggerFactory;
-
 import java.util.HashSet;
 import java.util.Set;
-import java.util.logging.Logger;
 
 /**
  * 类过滤器
@@ -24,8 +21,6 @@ import java.util.logging.Logger;
  * - 可通过配置文件 cfr_class_filter.conf 添加自定义过滤规则
  */
 public class ClassFilter {
-
-    private static final Logger LOGGER = LoggerFactory.create(ClassFilter.class);
 
     /**
      * JAR文件名前缀过滤规则（内置规则 + 配置文件规则）
@@ -53,12 +48,28 @@ public class ClassFilter {
     private boolean currentJarFiltered;
 
     /**
+     * 静默模式（不输出过滤日志）
+     */
+    private final boolean silent;
+
+    /**
      * 构造函数
      * 
      * @param enabled 是否启用过滤功能
      */
     public ClassFilter(boolean enabled) {
+        this(enabled, false);
+    }
+
+    /**
+     * 构造函数
+     * 
+     * @param enabled 是否启用过滤功能
+     * @param silent 是否静默模式（不输出日志）
+     */
+    public ClassFilter(boolean enabled, boolean silent) {
         this.enabled = enabled;
+        this.silent = silent;
         this.jarPrefixRules = new HashSet<String>();
         this.classPrefixRules = new HashSet<String>();
         this.currentJarName = null;
@@ -68,16 +79,20 @@ public class ClassFilter {
             // 加载内置类名规则
             Set<String> builtinRules = BuiltinFilterRules.getBuiltinFilterRules();
             this.classPrefixRules.addAll(builtinRules);
-            LOGGER.info("加载了 " + builtinRules.size() + " 条内置类名过滤规则");
+            if (!silent) {
+                System.out.println("加载了 " + builtinRules.size() + " 条内置类名过滤规则");
+            }
 
             // 加载配置文件规则
-            ClassFilterConfig.FilterRules configRules = ClassFilterConfig.loadFilterRules();
+            ClassFilterConfig.FilterRules configRules = ClassFilterConfig.loadFilterRules(silent);
             
             // 合并JAR前缀规则
             Set<String> configJarRules = configRules.getJarPrefixRules();
             if (!configJarRules.isEmpty()) {
                 this.jarPrefixRules.addAll(configJarRules);
-                LOGGER.info("从配置文件加载了 " + configJarRules.size() + " 条JAR前缀规则");
+                if (!silent) {
+                    System.out.println("从配置文件加载了 " + configJarRules.size() + " 条JAR前缀规则");
+                }
             }
 
             // 合并类名前缀规则
@@ -89,11 +104,15 @@ public class ClassFilter {
                         newRules++;
                     }
                 }
-                LOGGER.info("从配置文件加载了 " + configClassRules.size() + " 条类名前缀规则（其中 " + newRules + " 条为新规则）");
+                if (!silent) {
+                    System.out.println("从配置文件加载了 " + configClassRules.size() + " 条类名前缀规则（其中 " + newRules + " 条为新规则）");
+                }
             }
 
-            LOGGER.info("类过滤功能已启用，共 " + this.jarPrefixRules.size() + " 条JAR规则，" + 
-                       this.classPrefixRules.size() + " 条类名规则");
+            if (!silent) {
+                System.out.println("类过滤功能已启用，共 " + this.jarPrefixRules.size() + " 条JAR规则，" + 
+                           this.classPrefixRules.size() + " 条类名规则");
+            }
         }
     }
 
@@ -125,8 +144,8 @@ public class ClassFilter {
 
         // 检查JAR文件名是否匹配任何前缀规则
         this.currentJarFiltered = matchesJarPrefix(this.currentJarName);
-        if (this.currentJarFiltered) {
-            LOGGER.info("JAR文件 " + jarPath + " 被过滤（匹配JAR前缀规则）");
+        if (this.currentJarFiltered && !silent) {
+            System.out.println("JAR文件 " + jarPath + " 被过滤（匹配JAR前缀规则）");
         }
     }
 
@@ -148,7 +167,6 @@ public class ClassFilter {
             if (jarName.equals(prefix) || 
                 jarName.startsWith(prefix + "-") ||
                 jarName.startsWith(prefix + ".")) {
-                LOGGER.fine("JAR " + jarName + " 匹配前缀规则 " + prefix);
                 return true;
             }
         }
@@ -219,7 +237,9 @@ public class ClassFilter {
         // 然后检查类名前缀过滤
         for (String rule : classPrefixRules) {
             if (className.startsWith(rule)) {
-                LOGGER.info("跳过类 " + className + "（匹配类名规则: " + rule + "）");
+                if (!silent) {
+                    System.out.println("跳过类 " + className + "（匹配类名规则: " + rule + "）");
+                }
                 return true;
             }
         }
@@ -230,7 +250,7 @@ public class ClassFilter {
     /**
      * 检查给定的类名是否应该被过滤，并记录过滤信息
      * 
-     * 与 shouldFilter 方法类似，但会在类名过滤时记录INFO级别的日志。
+     * 与 shouldFilter 方法类似，但会在类名过滤时输出日志。
      * JAR级别过滤的日志已在setCurrentJar中输出，此处不再重复。
      * 
      * @param className 类的全限定名
@@ -257,7 +277,9 @@ public class ClassFilter {
         // 然后检查类名前缀过滤
         for (String rule : classPrefixRules) {
             if (className.startsWith(rule)) {
-                LOGGER.info("跳过类 " + className + "（匹配类名规则: " + rule + "）");
+                if (!silent) {
+                    System.out.println("跳过类 " + className + "（匹配类名规则: " + rule + "）");
+                }
                 if (matchedRule != null) {
                     matchedRule.append("[class]").append(rule);
                 }

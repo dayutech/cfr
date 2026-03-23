@@ -55,6 +55,10 @@ class Driver {
         ObfuscationMapping mapping = MappingFactory.get(options, dcCommonState);
         dcCommonState = new DCCommonState(dcCommonState, mapping);
 
+        // 创建类过滤器
+        final boolean enableClassFilter = options.getOption(OptionsImpl.ENABLE_CLASS_FILTER);
+        final ClassFilter classFilter = new ClassFilter(enableClassFilter);
+
         IllegalIdentifierDump illegalIdentifierDump = IllegalIdentifierDump.Factory.get(options);
         Dumper d = new ToStringDumper(); // sentinel dumper.
         ExceptionDumper ed = dumperFactory.getExceptionDumper();
@@ -62,6 +66,12 @@ class Driver {
             SummaryDumper summaryDumper = new NopSummaryDumper();
             ClassFile c = dcCommonState.getClassFileMaybePath(path);
             if (skipInnerClass && c.isInnerClass()) return;
+
+            // 检查类是否应该被过滤
+            String className = c.getClassType().getRawName();
+            if (classFilter.shouldFilter(className)) {
+                return;
+            }
 
             dcCommonState.configureWith(c);
             dumperFactory.getProgressDumper().analysingType(c.getClassType());

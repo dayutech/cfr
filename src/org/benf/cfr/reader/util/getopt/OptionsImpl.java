@@ -577,6 +577,9 @@ public class OptionsImpl implements Options {
     public static final PermittedOptionProvider.Argument<Boolean> DUMP_EXCEPTION_STACK_TRACE = register(new PermittedOptionProvider.Argument<Boolean>(
             "dumpexceptionstacktrace", defaultTrueBooleanDecoder,
             "Whether to dump the stack trace of exceptions which occurred during decompilation. Disabling this can be useful to get consistent decompilation output, regardless of how CFR is invoked."));
+    public static final PermittedOptionProvider.Argument<Boolean> ENABLE_CLASS_FILTER = register(new PermittedOptionProvider.Argument<Boolean>(
+            "enableclassfilter", defaultFalseBooleanDecoder,
+            "Enable class filtering to skip decompilation of known third-party libraries. Uses built-in rules and optional config file (cfr_class_filter.conf)."));
 
 
     public OptionsImpl(Map<String, String> opts) {

@@ -102,6 +102,19 @@ public class BuiltinFilterRules {
         jarRules.add("spring-data");
         jarRules.add("spring-boot");
         jarRules.add("spring-cloud");
+        jarRules.add("spring-context-support");
+        jarRules.add("spring-expression");
+        jarRules.add("spring-jcl");
+        jarRules.add("spring-security");
+        jarRules.add("spring-tx");
+        jarRules.add("spring-boot-autoconfigure");
+        jarRules.add("spring-boot-starter");
+        jarRules.add("spring-boot-starter-json");
+        jarRules.add("spring-boot-starter-log4j2");
+        jarRules.add("spring-boot-starter-mail");
+        jarRules.add("spring-boot-starter-quartz");
+        jarRules.add("spring-boot-starter-security");
+        jarRules.add("spring-boot-starter-web");
 
         // Apache Commons系列JAR
         jarRules.add("commons-lang3");
@@ -117,15 +130,19 @@ public class BuiltinFilterRules {
         jarRules.add("commons-httpclient");
         jarRules.add("commons-net");
         jarRules.add("commons-pool");
+        jarRules.add("commons-pool2");
         jarRules.add("commons-dbcp");
         jarRules.add("commons-digester");
         jarRules.add("commons-email");
         jarRules.add("commons-scxml");
         jarRules.add("commons-validator");
         jarRules.add("commons-math");
+        jarRules.add("commons-math3");
         jarRules.add("commons-text");
         jarRules.add("commons-discovery");
         jarRules.add("commons-vfs");
+        jarRules.add("commons-chain");
+        jarRules.add("commons-logging");
 
         // Apache Log4j系列JAR
         jarRules.add("log4j");
@@ -133,11 +150,13 @@ public class BuiltinFilterRules {
         jarRules.add("log4j-core");
         jarRules.add("log4j-slf4j");
         jarRules.add("log4j12");
+        jarRules.add("log4j-jul");
 
         // Apache Log4j2系列JAR
         jarRules.add("log4j-api-2");
         jarRules.add("log4j-core-2");
         jarRules.add("log4j-slf4j-2");
+        jarRules.add("log4j-slf4j-impl");
 
         // Apache Logging系列JAR
         jarRules.add("logging-log4j");
@@ -146,6 +165,12 @@ public class BuiltinFilterRules {
         jarRules.add("httpcore");
         jarRules.add("httpclient");
         jarRules.add("httpmime");
+
+        // Apache HTTP/2系列JAR
+        jarRules.add("http2-client");
+        jarRules.add("http2-common");
+        jarRules.add("http2-hpack");
+        jarRules.add("http2-http-client-transport");
 
         // Apache Kafka系列JAR
         jarRules.add("kafka");
@@ -239,10 +264,22 @@ public class BuiltinFilterRules {
         jarRules.add("derby");
         jarRules.add("derbytools");
 
+        // Apache Solr系列JAR
+        jarRules.add("solr-solrj");
+
+        // Apache ZooKeeper系列JAR
+        jarRules.add("zookeeper");
+        jarRules.add("zookeeper-jute");
+
+        // Apache Velocity系列JAR
+        jarRules.add("velocity");
+        jarRules.add("velocity-tools");
+
         // Google Guava系列JAR
         jarRules.add("guava");
         jarRules.add("guava-gwt");
         jarRules.add("guava-testlib");
+        jarRules.add("java-driver-shaded-guava");
 
         // Google Gson系列JAR
         jarRules.add("gson");
@@ -264,6 +301,8 @@ public class BuiltinFilterRules {
         jarRules.add("slf4j-reload4j");
         jarRules.add("slf4j-simple");
         jarRules.add("slf4j-jdk14");
+        jarRules.add("slf4j-jul");
+        jarRules.add("jul-to-slf4j");
 
         // Logback系列JAR
         jarRules.add("logback-classic");
@@ -280,6 +319,9 @@ public class BuiltinFilterRules {
         jarRules.add("netty-resolver");
         jarRules.add("netty-example");
         jarRules.add("netty-tcnative-boringssl-static");
+        jarRules.add("netty-transport-classes-epoll");
+        jarRules.add("netty-transport-native-epoll");
+        jarRules.add("netty-transport-native-unix-common");
 
         // RxJava系列JAR
         jarRules.add("rxjava");
@@ -319,6 +361,9 @@ public class BuiltinFilterRules {
         jarRules.add("jackson-jaxrs");
         jarRules.add("jackson-databind-jr");
         jarRules.add("jackson-core-asl");
+        jarRules.add("jackson-datatype-jdk8");
+        jarRules.add("jackson-datatype-jsr310");
+        jarRules.add("jackson-module-parameter-names");
 
         // Hibernate系列JAR
         jarRules.add("hibernate-core");
@@ -353,6 +398,18 @@ public class BuiltinFilterRules {
         // Derby数据库驱动JAR
         jarRules.add("derby");
         jarRules.add("derbytools");
+
+        // SQLite驱动JAR
+        jarRules.add("sqlite-jdbc");
+
+        // DataStax Java Driver (Cassandra)
+        jarRules.add("java-driver-core");
+        jarRules.add("java-driver-query-builder");
+        jarRules.add("java-driver-shaded-guava");
+        jarRules.add("native-protocol");
+
+        // Jedis (Redis客户端)
+        jarRules.add("jedis");
 
         // Lombok
         jarRules.add("lombok");
@@ -398,11 +455,15 @@ public class BuiltinFilterRules {
 
         // Snappy系列JAR (压缩)
         jarRules.add("snappy-java");
+        jarRules.add("lz4-java");
 
         // Prometheus simpleclient系列JAR
         jarRules.add("simpleclient");
         jarRules.add("simpleclient_common");
         jarRules.add("simpleclient_httpserver");
+
+        // Metrics系列JAR
+        jarRules.add("metrics-core");
 
         // JFreeChart系列JAR (图表)
         jarRules.add("jfreechart");
@@ -441,11 +502,24 @@ public class BuiltinFilterRules {
         jarRules.add("tomcat-juli");
         jarRules.add("tomcat-util");
 
+        // Jetty系列JAR
+        jarRules.add("jetty-alpn-client");
+        jarRules.add("jetty-alpn-java-client");
+        jarRules.add("jetty-client");
+        jarRules.add("jetty-http");
+        jarRules.add("jetty-io");
+        jarRules.add("jetty-util");
+
         // Servlet/JSP API系列JAR
         jarRules.add("javax.servlet-api");
         jarRules.add("javax.servlet.jsp-api");
         jarRules.add("jsp-api");
         jarRules.add("servlet-api");
+
+        // Jakarta EE系列JAR (新命名空间)
+        jarRules.add("jakarta.activation");
+        jarRules.add("jakarta.annotation-api");
+        jarRules.add("jakarta.mail");
 
         // JAX-WS系列JAR
         jarRules.add("jaxrpc-api");
@@ -498,6 +572,139 @@ public class BuiltinFilterRules {
 
         // Core Util
         jarRules.add("core");
+
+        // ==================== 新增的第三方依赖规则 ====================
+
+        // ASM系列JAR (字节码操作)
+        jarRules.add("asm");
+        jarRules.add("asm-analysis");
+        jarRules.add("asm-commons");
+        jarRules.add("asm-tree");
+        jarRules.add("asm-util");
+
+        // Caffeine (高性能缓存)
+        jarRules.add("caffeine");
+
+        // Checker Qual (类型检查)
+        jarRules.add("checker-qual");
+
+        // Commons Chain
+        jarRules.add("commons-chain");
+
+        // Config (配置库 - Typesafe Config)
+        jarRules.add("config");
+
+        // Curves API (几何曲线)
+        jarRules.add("curvesapi");
+
+        // Error Prone (编译时错误检查)
+        jarRules.add("error_prone_annotations");
+
+        // FontBox (PDF字体处理)
+        jarRules.add("fontbox");
+
+        // PDFBox (PDF处理)
+        jarRules.add("pdfbox");
+
+        // iText (PDF库)
+        jarRules.add("itext");
+
+        // OpenPDF/XDocReport系列
+        jarRules.add("fr.opensagres.poi.xwpf.converter.core");
+        jarRules.add("fr.opensagres.poi.xwpf.converter.pdf");
+        jarRules.add("fr.opensagres.xdocreport.itext.extension");
+
+        // Apache POI系列 (Excel/Word处理)
+        jarRules.add("poi");
+        jarRules.add("poi-ooxml");
+        jarRules.add("poi-ooxml-schemas");
+        jarRules.add("ooxml-schemas");
+
+        // GeoIP2 (IP地理位置)
+        jarRules.add("geoip2");
+
+        // MaxMind DB
+        jarRules.add("maxmind-db");
+
+        // Graphics2D
+        jarRules.add("graphics2d");
+
+        // HdrHistogram (高动态范围直方图)
+        jarRules.add("HdrHistogram");
+
+        // IPAddress (IP地址处理)
+        jarRules.add("ipaddress");
+
+        // Jama (矩阵运算)
+        jarRules.add("jama");
+
+        // JCIP Annotations (并发注释)
+        jarRules.add("jcip-annotations");
+
+        // JNR系列 (Java Native Runtime)
+        jarRules.add("jnr-a64asm");
+        jarRules.add("jnr-constants");
+        jarRules.add("jnr-ffi");
+        jarRules.add("jnr-posix");
+        jarRules.add("jnr-x86asm");
+        jarRules.add("jffi");
+        jarRules.add("jffi-native");
+
+        // JSON处理 (官方JSON)
+        jarRules.add("json");
+
+        // Koloboke (高性能Map/Set)
+        jarRules.add("koloboke-api-jdk8");
+        jarRules.add("koloboke-impl-common-jdk8");
+        jarRules.add("koloboke-impl-jdk8");
+
+        // Mchange (c3p0数据库连接池)
+        jarRules.add("mchange-commons-java");
+
+        // ORO (正则表达式)
+        jarRules.add("oro");
+
+        // Quartz (任务调度)
+        jarRules.add("quartz");
+
+        // Reactive Streams
+        jarRules.add("reactive-streams");
+
+        // SnakeYAML (YAML解析)
+        jarRules.add("snakeyaml");
+
+        // Solr
+        jarRules.add("solr-solrj");
+
+        // SparseBitSet
+        jarRules.add("SparseBitSet");
+
+        // Spatial4j (地理空间)
+        jarRules.add("spatial4j");
+
+        // SpotBugs
+        jarRules.add("spotbugs-annotations");
+
+        // SSLExt
+        jarRules.add("sslext");
+
+        // StAX2 API
+        jarRules.add("stax2-api");
+
+        // VectorGraphics2D
+        jarRules.add("VectorGraphics2D");
+
+        // Woodstox (StAX XML解析器)
+        jarRules.add("woodstox-core");
+
+        // XChart (图表库)
+        jarRules.add("xchart");
+
+        // Animated GIF
+        jarRules.add("animated-gif-lib");
+
+        // OfflineReverseGeocode
+        jarRules.add("OfflineReverseGeocode");
 
         BUILTIN_JAR_RULES = Collections.unmodifiableSet(jarRules);
     }

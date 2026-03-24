@@ -15,6 +15,13 @@ import java.util.Map;
 public class OptionsImpl implements Options {
     private final Map<String, String> opts;
 
+    /**
+     * 检查指定的flag或argument是否已被设置
+     */
+    public boolean isOptionSet(String name) {
+        return opts.containsKey(name);
+    }
+
     private static class DefaultingIntDecoder implements OptionDecoder<Integer> {
         final Integer defaultValue;
 
@@ -577,9 +584,6 @@ public class OptionsImpl implements Options {
     public static final PermittedOptionProvider.Argument<Boolean> DUMP_EXCEPTION_STACK_TRACE = register(new PermittedOptionProvider.Argument<Boolean>(
             "dumpexceptionstacktrace", defaultTrueBooleanDecoder,
             "Whether to dump the stack trace of exceptions which occurred during decompilation. Disabling this can be useful to get consistent decompilation output, regardless of how CFR is invoked."));
-    public static final PermittedOptionProvider.Argument<Boolean> ENABLE_CLASS_FILTER = register(new PermittedOptionProvider.Argument<Boolean>(
-            "enableclassfilter", defaultFalseBooleanDecoder,
-            "Enable class filtering to skip decompilation of known third-party libraries. Uses built-in rules and optional config file (cfr_class_filter.conf)."));
 
 
     public OptionsImpl(Map<String, String> opts) {
@@ -608,7 +612,7 @@ public class OptionsImpl implements Options {
     private static class CFRFactory implements GetOptSinkFactory<Options> {
         @Override
         public List<String> getFlags() {
-            return ListFactory.newList();
+            return ListFactory.newList("enableclassfilter");
         }
 
         @Override

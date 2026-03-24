@@ -55,9 +55,11 @@ class Driver {
         ObfuscationMapping mapping = MappingFactory.get(options, dcCommonState);
         dcCommonState = new DCCommonState(dcCommonState, mapping);
 
-        // 创建类过滤器
-        final boolean enableClassFilter = options.getOption(OptionsImpl.ENABLE_CLASS_FILTER);
-        final ClassFilter classFilter = new ClassFilter(enableClassFilter);
+        // 检查是否启用了类过滤
+        ClassFilter classFilter = null;
+        if (options.isOptionSet("enableclassfilter")) {
+            classFilter = new ClassFilter(true);
+        }
 
         IllegalIdentifierDump illegalIdentifierDump = IllegalIdentifierDump.Factory.get(options);
         Dumper d = new ToStringDumper(); // sentinel dumper.
@@ -68,9 +70,11 @@ class Driver {
             if (skipInnerClass && c.isInnerClass()) return;
 
             // 检查类是否应该被过滤
-            String className = c.getClassType().getRawName();
-            if (classFilter.shouldFilter(className)) {
-                return;
+            if (classFilter != null) {
+                String className = c.getClassType().getRawName();
+                if (classFilter.shouldFilter(className)) {
+                    return;
+                }
             }
 
             dcCommonState.configureWith(c);
@@ -128,15 +132,17 @@ class Driver {
         ObfuscationMapping mapping = MappingFactory.get(options, dcCommonState);
         dcCommonState = new DCCommonState(dcCommonState, mapping);
 
-        // 创建类过滤器（在JAR级别创建一次，避免重复加载配置）
-        final boolean enableClassFilter = options.getOption(OptionsImpl.ENABLE_CLASS_FILTER);
-        final ClassFilter classFilter = new ClassFilter(enableClassFilter);
+        // 检查是否启用了类过滤
+        ClassFilter classFilter = null;
+        if (options.isOptionSet("enableclassfilter")) {
+            classFilter = new ClassFilter(true);
 
-        // 在加载JAR之前检查JAR级别过滤
-        classFilter.setCurrentJar(path);
-        if (classFilter.isCurrentJarFiltered()) {
-            // JAR被过滤，直接返回，不加载JAR内容
-            return;
+            // 在加载JAR之前检查JAR级别过滤
+            classFilter.setCurrentJar(path);
+            if (classFilter.isCurrentJarFiltered()) {
+                // JAR被过滤，直接返回，不加载JAR内容
+                return;
+            }
         }
 
         SummaryDumper summaryDumper = null;
@@ -215,13 +221,9 @@ class Driver {
 
         // JAR级别过滤已在doJar中检查，此处不再重复检查
 
-        if (classFilter.isCurrentJarFiltered()) {
-            return;
-        }
-
         // If we're dumping a class which is SPECIFIC to a version, i.e. other than 0, we override the common state
         // so that it will look up in all version going back from that.
-        if (forVersion > 6) {
+        if (forVersion > 0) {
             dumperFactory = dumperFactory.getFactoryWithPrefix("/" + MiscConstants.MULTI_RELEASE_PREFIX + forVersion + "/", forVersion);
             Collections.reverse(versionsSeen);
             // We create a new classfile source, which will preferentially hit X, then X-1 down to X.
@@ -275,7 +277,7 @@ class Driver {
                 }
                 // Check if this class should be filtered
                 String className = type.getRawName();
-                if (classFilter.shouldFilter(className)) {
+                if (classFilter != null && classFilter.shouldFilter(className)) {
                     d = null;
                     continue;
                 }

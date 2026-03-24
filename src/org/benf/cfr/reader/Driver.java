@@ -215,9 +215,13 @@ class Driver {
 
         // JAR级别过滤已在doJar中检查，此处不再重复检查
 
+        if (classFilter.isCurrentJarFiltered()) {
+            return;
+        }
+
         // If we're dumping a class which is SPECIFIC to a version, i.e. other than 0, we override the common state
         // so that it will look up in all version going back from that.
-        if (forVersion > 0) {
+        if (forVersion > 6) {
             dumperFactory = dumperFactory.getFactoryWithPrefix("/" + MiscConstants.MULTI_RELEASE_PREFIX + forVersion + "/", forVersion);
             Collections.reverse(versionsSeen);
             // We create a new classfile source, which will preferentially hit X, then X-1 down to X.

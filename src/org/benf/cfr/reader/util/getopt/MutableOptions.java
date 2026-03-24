@@ -48,6 +48,12 @@ public class MutableOptions implements Options {
     }
 
     @Override
+    public boolean isOptionSet(String name) {
+        if (overrides.containsKey(name)) return true;
+        return delegate.isOptionSet(name);
+    }
+
+    @Override
     public <T> T getOption(PermittedOptionProvider.ArgumentParam<T, Void> option) {
         String override = overrides.get(option.getName());
         if (override != null) {

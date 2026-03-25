@@ -612,7 +612,7 @@ public class OptionsImpl implements Options {
     private static class CFRFactory implements GetOptSinkFactory<Options> {
         @Override
         public List<String> getFlags() {
-            return ListFactory.newList("enableclassfilter");
+            return ListFactory.newList("enableclassfilter", "flatoutput");
         }
 
         @Override

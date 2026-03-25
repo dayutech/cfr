@@ -276,7 +276,8 @@ public class ClassFilterConfig {
             return false;
         }
 
-        if (prefix.startsWith(".") || prefix.endsWith(".")) {
+        // Allow trailing '.' so users can configure rules like 'java.' and 'rx.'
+        if (prefix.startsWith(".")) {
             return false;
         }
 

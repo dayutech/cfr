@@ -11,6 +11,7 @@ import org.benf.cfr.reader.mapping.NullMapping;
 import org.benf.cfr.reader.mapping.ObfuscationMapping;
 import org.benf.cfr.reader.util.AnalysisType;
 import org.benf.cfr.reader.util.CannotLoadClassException;
+import org.benf.cfr.reader.util.ClassFilter;
 import org.benf.cfr.reader.util.DecompilerComment;
 import org.benf.cfr.reader.util.MiscConstants;
 import org.benf.cfr.reader.util.bytestream.BaseByteData;
@@ -138,6 +139,10 @@ public class DCCommonState {
     }
 
     public TreeMap<Integer, List<JavaTypeInstance>> explicitlyLoadJar(String path, AnalysisType type) {
+        return explicitlyLoadJar(path, type, null);
+    }
+
+    public TreeMap<Integer, List<JavaTypeInstance>> explicitlyLoadJar(String path, AnalysisType type, ClassFilter classFilter) {
         JarContent jarContent = classFileSource.addJarContent(path, type);
 
         TreeMap<Integer, List<JavaTypeInstance>> baseRes = MapFactory.newTreeMap();
@@ -173,6 +178,9 @@ public class DCCommonState {
 
             // Redundant test as we're defending against a bad implementation.
             if (classPath.toLowerCase().endsWith(".class")) {
+                if (classFilter != null && classFilter.shouldFilterClassPath(classPath)) {
+                    continue;
+                }
                 res.get(version).add(classCache.getRefClassFor(classPath.substring(0, classPath.length() - 6)));
             }
         }

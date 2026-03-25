@@ -73,6 +73,36 @@ org.mylibrary
   - Example: `org.springframework` will match `org.springframework.core.xxx`
   - Supports both package prefixes (`org.springframework`) and dotted-boundary prefixes (`java.`, `rx.`)
 
+### Extended Filter Rules
+
+The extended filter rules in `cfr_class_filter.conf` cover **189 class prefixes** and **210 JAR name prefixes**, including:
+
+**Popular Libraries:**
+- Spring Framework (spring-*, org.springframework.*)
+- Apache Commons (commons-*, org.apache.*)
+- Jackson JSON (jackson-*, com.fasterxml.jackson.*)
+- SLF4J/Logback (org.slf4j.*, ch.qos.logback.*)
+- Netty (io.netty.*)
+- Bouncy Castle (org.bouncycastle.*)
+
+**Database/ORM:**
+- MySQL, PostgreSQL, Oracle, SQLite, MongoDB, Cassandra
+- Hibernate, MyBatis, JPA
+
+**Message Queues & Networking:**
+- Apache Kafka, RabbitMQ, Redis clients
+- Netty, OkHttp, OkIo
+- SNMP4J, SSH libraries
+
+**Code Analysis & Generation:**
+- ASM, Javassist, cglib, ByteBuddy
+- ANTLR, Groovy
+
+**Testing:**
+- JUnit, Mockito, EasyMock, PowerMock, Hamcrest
+
+**And many more third-party libraries...**
+
 **Legacy Format (Backward Compatible):**
 
 Lines without a section header are treated as class name prefix rules:

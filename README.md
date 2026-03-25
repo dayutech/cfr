@@ -132,6 +132,9 @@ java -jar cfr.jar ./input-dir --outputdir ./output
 # Recursively scan a directory and apply class/jar filtering at the same time
 java -jar cfr.jar ./input-dir --enableclassfilter --outputdir ./output
 
+# Flat output - all decompiled files are placed in the output directory without preserving package structure
+java -jar cfr.jar myapp.jar --outputdir ./output --flatoutput
+
 # View help for the filter option
 java -jar cfr.jar --help enableclassfilter
 ```

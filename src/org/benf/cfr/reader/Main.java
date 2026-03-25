@@ -15,12 +15,12 @@ public class Main {
 
     @SuppressWarnings({"WeakerAccess", "unused"}) // too many people use it - left for historical reasons.
     public static void doClass(DCCommonState dcCommonState, String path, boolean skipInnerClass, DumperFactory dumperFactory) {
-        Driver.doClass(dcCommonState, path, skipInnerClass, dumperFactory);
+        Driver.doClass(dcCommonState, path, skipInnerClass, dumperFactory, null, null);
     }
 
     @SuppressWarnings({"WeakerAccess", "unused"}) // too many people use it - left for historical reasons.
     public static void doJar(DCCommonState dcCommonState, String path, DumperFactory dumperFactory) {
-        Driver.doJar(dcCommonState, path, AnalysisType.JAR, dumperFactory);
+        Driver.doJar(dcCommonState, path, AnalysisType.JAR, dumperFactory, null);
     }
 
     public static void main(String[] args) {

@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.io.File;
 
 class Driver {
 
@@ -50,7 +51,7 @@ class Driver {
      *   mandates file names match declared names, but absolutely could happen when analysing randomly named class
      *   files in a junk directory.
      */
-    static void doClass(DCCommonState dcCommonState, String path, boolean skipInnerClass, DumperFactory dumperFactory) {
+    static void doClass(DCCommonState dcCommonState, String path, boolean skipInnerClass, DumperFactory dumperFactory, String outputPrefix, String relativePath) {
         Options options = dcCommonState.getOptions();
         ObfuscationMapping mapping = MappingFactory.get(options, dcCommonState);
         dcCommonState = new DCCommonState(dcCommonState, mapping);
@@ -78,6 +79,7 @@ class Driver {
             }
 
             dcCommonState.configureWith(c);
+            dumperFactory = applyClassOutputPrefix(dumperFactory, outputPrefix, relativePath, c.getClassType().getRawName());
             dumperFactory.getProgressDumper().analysingType(c.getClassType());
 
             // This may seem odd, but we want to make sure we're analysing the version
@@ -126,11 +128,12 @@ class Driver {
         }
     }
 
-    static void doJar(DCCommonState dcCommonState, String path, AnalysisType analysisType, DumperFactory dumperFactory) {
+    static void doJar(DCCommonState dcCommonState, String path, AnalysisType analysisType, DumperFactory dumperFactory, String outputPrefix) {
         Options options = dcCommonState.getOptions();
         IllegalIdentifierDump illegalIdentifierDump = IllegalIdentifierDump.Factory.get(options);
         ObfuscationMapping mapping = MappingFactory.get(options, dcCommonState);
         dcCommonState = new DCCommonState(dcCommonState, mapping);
+        dumperFactory = applyOutputPrefix(dumperFactory, outputPrefix);
 
         // 检查是否启用了类过滤
         ClassFilter classFilter = null;
@@ -174,6 +177,42 @@ class Driver {
                 summaryDumper.close();
             }
         }
+    }
+
+    private static DumperFactory applyClassOutputPrefix(DumperFactory dumperFactory, String outputPrefix, String relativePath, String className) {
+        if (relativePath == null) {
+            return applyOutputPrefix(dumperFactory, outputPrefix);
+        }
+        String prefix = outputPrefix;
+        int idx = relativePath.lastIndexOf('/');
+        String relativeParent = idx < 0 ? "" : relativePath.substring(0, idx);
+        String packagePath = getPackagePath(className);
+        if (relativeParent.length() != 0 && packagePath.length() != 0) {
+            if (relativeParent.equals(packagePath)) {
+                relativeParent = "";
+            } else if (relativeParent.endsWith("/" + packagePath)) {
+                relativeParent = relativeParent.substring(0, relativeParent.length() - packagePath.length() - 1);
+            }
+        }
+        if (relativeParent.length() != 0) {
+            prefix = File.separator + relativeParent.replace('/', File.separatorChar);
+        }
+        return applyOutputPrefix(dumperFactory, prefix);
+    }
+
+    private static DumperFactory applyOutputPrefix(DumperFactory dumperFactory, String outputPrefix) {
+        if (outputPrefix == null || outputPrefix.length() == 0) {
+            return dumperFactory;
+        }
+        return dumperFactory.getFactoryWithPrefix(outputPrefix, 0);
+    }
+
+    private static String getPackagePath(String className) {
+        int idx = className.lastIndexOf('.');
+        if (idx < 0) {
+            return "";
+        }
+        return className.substring(0, idx).replace('.', '/');
     }
 
     /*

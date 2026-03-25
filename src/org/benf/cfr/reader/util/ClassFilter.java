@@ -104,7 +104,7 @@ public class ClassFilter {
         // 检查JAR文件名是否匹配任何前缀规则
         this.currentJarFiltered = matchesJarPrefix(this.currentJarName);
         if (this.currentJarFiltered) {
-            System.out.println("JAR文件 " + jarPath + " 被过滤");
+            System.out.println("Filtered JAR: " + jarPath);
         }
     }
 
@@ -196,7 +196,7 @@ public class ClassFilter {
         // 然后检查类名前缀过滤
         for (String rule : classPrefixRules) {
             if (className.startsWith(rule)) {
-                System.out.println("跳过类 " + className);
+                System.out.println("Skipping class: " + className);
                 return true;
             }
         }
@@ -231,7 +231,7 @@ public class ClassFilter {
         // 然后检查类名前缀过滤
         for (String rule : classPrefixRules) {
             if (className.startsWith(rule)) {
-                System.out.println("跳过类 " + className);
+                System.out.println("Skipping class: " + className);
                 if (matchedRule != null) {
                     matchedRule.append("[class]").append(rule);
                 }
@@ -248,8 +248,8 @@ public class ClassFilter {
      * @return 包含过滤规则数量等信息的字符串
      */
     public String getStatistics() {
-        return "类过滤器状态: " + (enabled ? "已启用" : "已禁用") +
-               ", JAR前缀规则: " + jarPrefixRules.size() +
-               ", 类名前缀规则: " + classPrefixRules.size();
+        return "Class filter status: " + (enabled ? "enabled" : "disabled") +
+               ", jar prefix rules: " + jarPrefixRules.size() +
+               ", class prefix rules: " + classPrefixRules.size();
     }
 }

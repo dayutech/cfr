@@ -181,15 +181,17 @@ public class DCCommonState {
 
             // Redundant test as we're defending against a bad implementation.
             if (classPath.toLowerCase().endsWith(".class")) {
-                if (classFilter != null && classFilter.shouldFilterClassPath(classPath)) {
-                    if (!silent) {
-                        int idx = classPath.lastIndexOf('/');
-                        String classDirectory = idx < 0 ? "<default-package>" : classPath.substring(0, idx);
-                        if (loggedFilteredDirectories.add(classDirectory)) {
-                            System.out.println("Filtered class directory: " + classDirectory);
+                if (classFilter != null) {
+                    StringBuilder matchedPathPrefix = new StringBuilder();
+                    if (classFilter.shouldFilterClassPath(classPath, matchedPathPrefix)) {
+                        if (!silent) {
+                            String classDirectory = matchedPathPrefix.length() == 0 ? "<unknown>" : matchedPathPrefix.toString();
+                            if (loggedFilteredDirectories.add(classDirectory)) {
+                                System.out.println("Filtered class directory: " + classDirectory);
+                            }
                         }
+                        continue;
                     }
-                    continue;
                 }
                 res.get(version).add(classCache.getRefClassFor(classPath.substring(0, classPath.length() - 6)));
             }

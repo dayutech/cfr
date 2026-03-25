@@ -233,6 +233,17 @@ public class ClassFilter {
      * @return 如果该路径匹配过滤规则返回true，否则返回false
      */
     public boolean shouldFilterClassPath(String classPath) {
+        return shouldFilterClassPath(classPath, null);
+    }
+
+    /**
+     * 检查JAR条目路径是否应被过滤，并返回命中的规则目录前缀
+     *
+     * @param classPath JAR中的类路径（例如 org/apache/Foo.class）
+     * @param matchedPathPrefix 输出参数，命中时返回规则目录前缀（例如 org/apache）
+     * @return 如果该路径匹配过滤规则返回true，否则返回false
+     */
+    public boolean shouldFilterClassPath(String classPath, StringBuilder matchedPathPrefix) {
         if (!enabled) {
             return false;
         }
@@ -242,6 +253,9 @@ public class ClassFilter {
         }
 
         if (currentJarFiltered) {
+            if (matchedPathPrefix != null) {
+                matchedPathPrefix.append("<jar>");
+            }
             return true;
         }
 
@@ -251,10 +265,20 @@ public class ClassFilter {
         }
         normalizedClassPath = normalizedClassPath.replace('\\', '/');
 
+        String bestMatch = null;
         for (String rule : classPathPrefixRules) {
-            if (normalizedClassPath.startsWith(rule)) {
-                return true;
+            if (!normalizedClassPath.startsWith(rule)) {
+                continue;
             }
+            if (bestMatch == null || rule.length() < bestMatch.length()) {
+                bestMatch = rule;
+            }
+        }
+        if (bestMatch != null) {
+            if (matchedPathPrefix != null) {
+                matchedPathPrefix.append(bestMatch);
+            }
+            return true;
         }
 
         return false;

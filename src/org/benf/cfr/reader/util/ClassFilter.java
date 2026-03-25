@@ -31,6 +31,10 @@ public class ClassFilter {
      * 全类名前缀过滤规则（内置规则 + 配置文件规则）
      */
     private final Set<String> classPrefixRules;
+    /**
+     * class文件路径前缀过滤规则（将类名前缀中的'.'转换为'/'）
+     */
+    private final Set<String> classPathPrefixRules;
 
     /**
      * 过滤功能是否启用
@@ -56,6 +60,7 @@ public class ClassFilter {
         this.enabled = enabled;
         this.jarPrefixRules = new HashSet<String>();
         this.classPrefixRules = new HashSet<String>();
+        this.classPathPrefixRules = new HashSet<String>();
         this.currentJarName = null;
         this.currentJarFiltered = false;
 
@@ -72,6 +77,10 @@ public class ClassFilter {
 
             // 合并配置文件类名前缀规则
             this.classPrefixRules.addAll(configRules.getClassPrefixRules());
+
+            for (String classPrefixRule : classPrefixRules) {
+                classPathPrefixRules.add(classPrefixRule.replace('.', '/'));
+            }
         }
     }
 
@@ -180,28 +189,7 @@ public class ClassFilter {
      * @return 如果类应该被过滤返回true，否则返回false
      */
     public boolean shouldFilter(String className) {
-        if (!enabled) {
-            return false;
-        }
-
-        if (className == null || className.isEmpty()) {
-            return false;
-        }
-
-        // 首先检查JAR级别过滤
-        if (currentJarFiltered) {
-            return true;
-        }
-
-        // 然后检查类名前缀过滤
-        for (String rule : classPrefixRules) {
-            if (className.startsWith(rule)) {
-                System.out.println("Skipping class: " + className);
-                return true;
-            }
-        }
-
-        return false;
+        return shouldFilterWithLog(className, null);
     }
 
     /**
@@ -231,10 +219,43 @@ public class ClassFilter {
         // 然后检查类名前缀过滤
         for (String rule : classPrefixRules) {
             if (className.startsWith(rule)) {
-                System.out.println("Skipping class: " + className);
                 if (matchedRule != null) {
                     matchedRule.append("[class]").append(rule);
                 }
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 检查JAR条目路径是否应被过滤
+     *
+     * @param classPath JAR中的类路径（例如 org/apache/Foo.class）
+     * @return 如果该路径匹配过滤规则返回true，否则返回false
+     */
+    public boolean shouldFilterClassPath(String classPath) {
+        if (!enabled) {
+            return false;
+        }
+
+        if (classPath == null || classPath.isEmpty()) {
+            return false;
+        }
+
+        if (currentJarFiltered) {
+            return true;
+        }
+
+        String normalizedClassPath = classPath;
+        if (normalizedClassPath.endsWith(".class")) {
+            normalizedClassPath = normalizedClassPath.substring(0, normalizedClassPath.length() - 6);
+        }
+        normalizedClassPath = normalizedClassPath.replace('\\', '/');
+
+        for (String rule : classPathPrefixRules) {
+            if (normalizedClassPath.startsWith(rule)) {
                 return true;
             }
         }

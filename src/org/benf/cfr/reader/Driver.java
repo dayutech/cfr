@@ -155,19 +155,20 @@ class Driver {
             summaryDumper.notify("Summary for " + path);
             summaryDumper.notify(MiscConstants.CFR_HEADER_BRA + " " + CfrVersionInfo.VERSION_INFO);
             progressDumper.analysingPath(path);
-            Map<Integer, List<JavaTypeInstance>> clstypes = dcCommonState.explicitlyLoadJar(path, analysisType);
+            Map<Integer, List<JavaTypeInstance>> clstypes = dcCommonState.explicitlyLoadJar(path, analysisType, classFilter);
             Set<JavaTypeInstance> versionCollisions = getVersionCollisions(clstypes);
             dcCommonState.setCollisions(versionCollisions);
             List<Integer> versionsSeen = ListFactory.newList();
             
             addMissingOuters(clstypes);
+            filterTypesByClassFilter(clstypes, classFilter);
             
             for (Map.Entry<Integer, List<JavaTypeInstance>> entry : clstypes.entrySet()) {
                 int forVersion = entry.getKey();
                 versionsSeen.add(forVersion);
                 List<Integer> localVersionsSeen = ListFactory.newList(versionsSeen);
                 List<JavaTypeInstance> types = entry.getValue();
-                doJarVersionTypes(forVersion, localVersionsSeen, dcCommonState, dumperFactory, illegalIdentifierDump, summaryDumper, progressDumper, types, path, classFilter);
+                doJarVersionTypes(forVersion, localVersionsSeen, dcCommonState, dumperFactory, illegalIdentifierDump, summaryDumper, progressDumper, types);
             }
         } catch (Exception e) {
             dumperFactory.getExceptionDumper().noteException(path, "Exception analysing jar", e);
@@ -252,7 +253,22 @@ class Driver {
         return collisions;
     }
 
-    private static void doJarVersionTypes(int forVersion, final List<Integer> versionsSeen, DCCommonState dcCommonState, DumperFactory dumperFactory, IllegalIdentifierDump illegalIdentifierDump, SummaryDumper summaryDumper, ProgressDumper progressDumper, List<JavaTypeInstance> types, String jarPath, ClassFilter classFilter) {
+    private static void filterTypesByClassFilter(Map<Integer, List<JavaTypeInstance>> clstypes, ClassFilter classFilter) {
+        if (classFilter == null) {
+            return;
+        }
+        for (Map.Entry<Integer, List<JavaTypeInstance>> entry : clstypes.entrySet()) {
+            List<JavaTypeInstance> filtered = ListFactory.newList();
+            for (JavaTypeInstance type : entry.getValue()) {
+                if (!classFilter.shouldFilter(type.getRawName())) {
+                    filtered.add(type);
+                }
+            }
+            entry.setValue(filtered);
+        }
+    }
+
+    private static void doJarVersionTypes(int forVersion, final List<Integer> versionsSeen, DCCommonState dcCommonState, DumperFactory dumperFactory, IllegalIdentifierDump illegalIdentifierDump, SummaryDumper summaryDumper, ProgressDumper progressDumper, List<JavaTypeInstance> types) {
         Options options = dcCommonState.getOptions();
         final boolean lomem = options.getOption(OptionsImpl.LOMEM);
         final Predicate<String> matcher = MiscUtils.mkRegexFilter(options.getOption(OptionsImpl.JAR_FILTER), true);
@@ -311,12 +327,6 @@ class Driver {
                 // Don't explicitly dump inner classes.  But make sure we ask the CLASS if it's
                 // an inner class, rather than using the name, as scala tends to abuse '$'.
                 if (c.isInnerClass()) {
-                    d = null;
-                    continue;
-                }
-                // Check if this class should be filtered
-                String className = type.getRawName();
-                if (classFilter != null && classFilter.shouldFilter(className)) {
                     d = null;
                     continue;
                 }

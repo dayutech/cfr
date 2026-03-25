@@ -22,6 +22,7 @@ import org.benf.cfr.reader.util.collections.SetFactory;
 import org.benf.cfr.reader.util.functors.BinaryFunction;
 import org.benf.cfr.reader.util.functors.UnaryFunction;
 import org.benf.cfr.reader.util.getopt.Options;
+import org.benf.cfr.reader.util.getopt.OptionsImpl;
 
 import java.io.File;
 import java.util.LinkedHashSet;
@@ -144,6 +145,8 @@ public class DCCommonState {
 
     public TreeMap<Integer, List<JavaTypeInstance>> explicitlyLoadJar(String path, AnalysisType type, ClassFilter classFilter) {
         JarContent jarContent = classFileSource.addJarContent(path, type);
+        final boolean silent = options.getOption(OptionsImpl.SILENT);
+        Set<String> loggedFilteredDirectories = SetFactory.newSet();
 
         TreeMap<Integer, List<JavaTypeInstance>> baseRes = MapFactory.newTreeMap();
         Map<Integer, List<JavaTypeInstance>> res = MapFactory.newLazyMap(baseRes, new UnaryFunction<Integer, List<JavaTypeInstance>>() {
@@ -179,6 +182,13 @@ public class DCCommonState {
             // Redundant test as we're defending against a bad implementation.
             if (classPath.toLowerCase().endsWith(".class")) {
                 if (classFilter != null && classFilter.shouldFilterClassPath(classPath)) {
+                    if (!silent) {
+                        int idx = classPath.lastIndexOf('/');
+                        String classDirectory = idx < 0 ? "<default-package>" : classPath.substring(0, idx);
+                        if (loggedFilteredDirectories.add(classDirectory)) {
+                            System.out.println("Filtered class directory: " + classDirectory);
+                        }
+                    }
                     continue;
                 }
                 res.get(version).add(classCache.getRefClassFor(classPath.substring(0, classPath.length() - 6)));

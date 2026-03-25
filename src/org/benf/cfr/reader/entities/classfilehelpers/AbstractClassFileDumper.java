@@ -54,6 +54,9 @@ abstract class AbstractClassFileDumper implements ClassFileDumper {
     void dumpTopHeader(ClassFile classFile, Dumper d, boolean showPackage) {
         if (dcCommonState == null) return;
         Options options = dcCommonState.getOptions();
+        if (!options.getOption(OptionsImpl.SHOW_CFR_VERSION)) {
+            return;
+        }
         String header = MiscConstants.CFR_HEADER_BRA;
         if (options.getOption(OptionsImpl.SHOW_CFR_VERSION)) {
             header += " " + CfrVersionInfo.VERSION_INFO;

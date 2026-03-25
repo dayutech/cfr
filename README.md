@@ -138,6 +138,9 @@ java -jar cfr.jar myapp.jar --outputdir ./output --flatoutput
 # Show CFR version comment header in each decompiled file (disabled by default)
 java -jar cfr.jar myapp.jar --showversion
 
+# Show decompiler status comments in output (disabled by default)
+java -jar cfr.jar myapp.jar --comments
+
 # View help for the filter option
 java -jar cfr.jar --help enableclassfilter
 ```

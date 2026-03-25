@@ -138,6 +138,9 @@ java -jar cfr.jar myapp.jar --outputdir ./output --flatoutput
 # 显示 CFR 版本注释头（默认关闭）
 java -jar cfr.jar myapp.jar --showversion
 
+# 显示反编译器状态注释（默认关闭）
+java -jar cfr.jar myapp.jar --comments
+
 # 查看过滤选项的帮助
 java -jar cfr.jar --help enableclassfilter
 ```

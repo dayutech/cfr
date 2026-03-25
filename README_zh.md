@@ -135,6 +135,9 @@ java -jar cfr.jar ./input-dir --enableclassfilter --outputdir ./output
 # 平坦输出 - 所有反编译的文件将直接放在输出目录中，不保留包结构
 java -jar cfr.jar myapp.jar --outputdir ./output --flatoutput
 
+# 显示 CFR 版本注释头（默认关闭）
+java -jar cfr.jar myapp.jar --showversion
+
 # 查看过滤选项的帮助
 java -jar cfr.jar --help enableclassfilter
 ```

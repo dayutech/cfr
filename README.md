@@ -9,6 +9,8 @@ To use, simply run the specific version jar, with the class name(s) you want to 
 
 Alternately, to decompile an entire jar, simply provide the jar path, and if you want to emit files (which you probably do!) add `--outputdir /tmp/putithere`.
 
+If the target path is a directory, CFR will recursively scan that directory and all subdirectories, and decompile every `.class` and `.jar` file it finds.
+
 ## Class Filtering
 
 CFR supports filtering out known third-party library classes during decompilation. This can significantly speed up decompilation of large JAR files by skipping classes from common libraries like Spring, Apache Commons, Guava, etc.
@@ -101,6 +103,12 @@ org.mylibrary
 ```bash
 # Decompile a JAR with class filtering enabled
 java -jar cfr.jar myapp.jar --enableclassfilter --outputdir ./output
+
+# Decompile all class/jar files found under a directory recursively
+java -jar cfr.jar ./input-dir --outputdir ./output
+
+# Recursively scan a directory and apply class/jar filtering at the same time
+java -jar cfr.jar ./input-dir --enableclassfilter --outputdir ./output
 
 # View help for the filter option
 java -jar cfr.jar --help enableclassfilter

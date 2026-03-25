@@ -396,7 +396,7 @@ public class OptionsImpl implements Options {
             "dumpclasspath", defaultFalseBooleanDecoder,
             "Dump class path for debugging purposes"));
     public static final PermittedOptionProvider.Argument<Boolean> DECOMPILER_COMMENTS = register(new PermittedOptionProvider.Argument<Boolean>(
-            "comments", defaultTrueBooleanDecoder,
+            "comments", defaultFalseBooleanDecoder,
             "Output comments describing decompiler status, fallback flags etc."));
     public static final PermittedOptionProvider.Argument<Troolean> FORCE_TOPSORT = register(new PermittedOptionProvider.Argument<Troolean>(
             "forcetopsort", defaultNeitherTrooleanDecoder,

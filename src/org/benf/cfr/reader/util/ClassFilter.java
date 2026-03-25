@@ -112,9 +112,6 @@ public class ClassFilter {
 
         // 检查JAR文件名是否匹配任何前缀规则
         this.currentJarFiltered = matchesJarPrefix(this.currentJarName);
-        if (this.currentJarFiltered) {
-            System.out.println("Filtered JAR: " + jarPath);
-        }
     }
 
     /**

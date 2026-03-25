@@ -130,6 +130,7 @@ class Driver {
 
     static void doJar(DCCommonState dcCommonState, String path, AnalysisType analysisType, DumperFactory dumperFactory, String outputPrefix) {
         Options options = dcCommonState.getOptions();
+        final boolean silent = options.getOption(OptionsImpl.SILENT);
         IllegalIdentifierDump illegalIdentifierDump = IllegalIdentifierDump.Factory.get(options);
         ObfuscationMapping mapping = MappingFactory.get(options, dcCommonState);
         dcCommonState = new DCCommonState(dcCommonState, mapping);
@@ -143,6 +144,9 @@ class Driver {
             // 在加载JAR之前检查JAR级别过滤
             classFilter.setCurrentJar(path);
             if (classFilter.isCurrentJarFiltered()) {
+                if (!silent) {
+                    System.out.println("Filtered JAR: " + path);
+                }
                 // JAR被过滤，直接返回，不加载JAR内容
                 return;
             }

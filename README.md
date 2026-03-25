@@ -25,17 +25,9 @@ java -jar cfr.jar myapp.jar --enableclassfilter
 
 ### Built-in Filter Rules
 
-CFR includes built-in filter rules for common third-party libraries:
+CFR now keeps only a **small default built-in set** (popular libraries such as Spring, Apache Commons/Log4j, Guava/Gson, SLF4J/Logback, Netty, Jackson, JUnit, Mockito).
 
-- **Spring Framework**: `org.springframework.*`
-- **Apache Projects**: `org.apache.commons.*`, `org.apache.logging.*`, `org.apache.log4j.*`, `org.apache.maven.*`, `org.apache.http.*`, `org.apache.kafka.*`
-- **Google Libraries**: `com.google.common.*`, `com.google.gson.*`, `com.google.code.*`
-- **Logging Frameworks**: `org.slf4j.*`, `ch.qos.logback.*`
-- **Network/Reactive**: `io.netty.*`, `io.reactivex.*`, `rx.*`
-- **Testing Frameworks**: `org.junit.*`, `org.mockito.*`, `org.hamcrest.*`
-- **JSON/ORM**: `com.fasterxml.jackson.*`, `org.hibernate.*`
-- **Java Standard Library**: `javax.*`, `java.*`, `sun.*`, `com.sun.*`, `jdk.*`
-- **Standard Organizations**: `org.w3c.*`, `org.xml.*`, `org.omg.*`, `org.ietf.*`, `org.jcp.*`
+The **extended third-party rules** have been moved to `cfr_class_filter.conf` so you can easily edit, remove, or add rules without changing Java code.
 
 ### Custom Filter Configuration
 
@@ -79,7 +71,7 @@ org.mylibrary
 - **`[class]` section**: Full class name prefix matching rules
   - Filters specific classes based on their fully qualified names
   - Example: `org.springframework` will match `org.springframework.core.xxx`
-  - Uses standard Java package naming conventions
+  - Supports both package prefixes (`org.springframework`) and dotted-boundary prefixes (`java.`, `rx.`)
 
 **Legacy Format (Backward Compatible):**
 

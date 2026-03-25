@@ -1,51 +1,51 @@
-# CFR - Another Java Decompiler \o/
+# CFR - 另一个 Java 反编译器 \o/
 
-This is the public repository for the CFR decompiler, main site hosted at <a href="https://www.benf.org/other/cfr">benf.org/other/cfr</a>
+这是 CFR 反编译器的公共代码库，主站托管于 <a href="https://www.benf.org/other/cfr">benf.org/other/cfr</a>
 
-CFR will decompile modern Java features - <a href="https://www.benf.org/other/cfr/java9observations.html">including much of Java <a href="java9stringconcat.html">9</a>, <a href="https://www.benf.org/other/cfr/switch_expressions.html">12</a> &amp; <a href="https://www.benf.org/other/cfr/java14instanceof_pattern">14</a>, but is written entirely in Java 6, so will work anywhere!  (<a href="https://www.benf.org/other/cfr/faq.html">FAQ</a>) - It'll even make a decent go of turning class files from other JVM languages back into java!</p>
+CFR 可以反编译现代 Java 特性 - <a href="https://www.benf.org/other/cfr/java9observations.html">包括 Java <a href="java9stringconcat.html">9</a>、<a href="https://www.benf.org/other/cfr/switch_expressions.html">12</a> 和 <a href="https://www.benf.org/other/cfr/java14instanceof_pattern">14</a> 的许多特性</a>，但它完全使用 Java 6 编写，因此可以在任何地方使用！（<a href="https://www.benf.org/other/cfr/faq.html">常见问题</a>）- 它甚至可以很好地反编译其他 JVM 语言生成的 class 文件！
 
-To use, simply run the specific version jar, with the class name(s) you want to decompile (either as a path to a class file, or as a fully qualified classname on your classpath).
-(`--help` to list arguments).
+使用方法：只需运行特定版本的 JAR 文件，并提供要反编译的类名（可以是 class 文件的路径，也可以是类路径上的完全限定类名）。
+（使用 `--help` 查看参数列表）。
 
-Alternately, to decompile an entire jar, simply provide the jar path, and if you want to emit files (which you probably do!) add `--outputdir /tmp/putithere`.
+或者，要反编译整个 JAR，只需提供 JAR 路径，如果想输出文件（你可能需要！），请添加 `--outputdir /tmp/putithere`。
 
-If the target path is a directory, CFR will recursively scan that directory and all subdirectories, and decompile every `.class` and `.jar` file it finds.
+如果目标路径是目录，CFR 会递归扫描该目录及其所有子目录，并反编译找到的每个 `.class` 和 `.jar` 文件。
 
-## Class Filtering
+## 类过滤
 
-CFR supports filtering out known third-party library classes during decompilation. This can significantly speed up decompilation of large JAR files by skipping classes from common libraries like Spring, Apache Commons, Guava, etc.
+CFR 支持在反编译过程中过滤掉已知的第三方库类。这可以显著加快大型 JAR 文件的反编译速度，通过跳过来自 Spring、Apache Commons、Guava 等常见库的类来提升性能。
 
-### Enable Class Filtering
+### 启用类过滤
 
-Use the `--enableclassfilter` option to enable class filtering:
+使用 `--enableclassfilter` 选项启用类过滤：
 
 ```
 java -jar cfr.jar myapp.jar --enableclassfilter
 ```
 
-### Built-in Filter Rules
+### 内置过滤规则
 
-CFR now keeps only a **small default built-in set** (popular libraries such as Spring, Apache Commons/Log4j, Guava/Gson, SLF4J/Logback, Netty, Jackson, JUnit, Mockito).
+CFR 现在只保留**一小部分默认内置规则**（Spring、Apache Commons/Log4j、Guava/Gson、SLF4J/Logback、Netty、Jackson、JUnit、Mockito 等流行库）。
 
-The **extended third-party rules** have been moved to `cfr_class_filter.conf` so you can easily edit, remove, or add rules without changing Java code.
+**扩展的第三方规则**已移至 `cfr_class_filter.conf`，以便您可以轻松编辑、删除或添加规则，而无需更改 Java 代码。
 
-### Custom Filter Configuration
+### 自定义过滤配置
 
-You can add custom filter rules by creating a configuration file named `cfr_class_filter.conf`. CFR searches for this file in the following locations (in order):
+您可以通过创建名为 `cfr_class_filter.conf` 的配置文件来添加自定义过滤规则。CFR 按以下顺序搜索此文件：
 
-1. Current working directory
-2. CFR JAR directory
+1. 当前工作目录
+2. CFR JAR 所在目录
 
-Both configuration files are merged with the built-in rules.
+两个配置文件都与内置规则合并。
 
-#### Configuration File Format
+#### 配置文件格式
 
-The configuration file supports two sections: `[jar]` and `[class]`.
+配置文件支持两个节：`[jar]` 和 `[class]`。
 
 ```
-# This is a comment
+# 这是注释
 
-# JAR file name prefix rules - filter entire JARs
+# JAR 文件名前缀规则 - 过滤整个 JAR
 [jar]
 spring-core
 spring-context
@@ -53,207 +53,206 @@ guava
 commons-lang3
 jackson-databind
 
-# Class name prefix rules - filter specific classes
+# 类名前缀规则 - 过滤特定类
 [class]
 com.mycompany.internal
 com.mycompany.thirdparty
 org.mylibrary
 ```
 
-**Section Details:**
+**节详情：**
 
-- **`[jar]` section**: JAR file name prefix matching rules
-  - Filters entire JAR files based on their names (without version suffixes)
-  - Example: `spring-core` will match `spring-core-5.3.0.jar`, `spring-core-6.0.0.jar`
-  - Matching is case-insensitive
-  - Version numbers are automatically handled (e.g., `guava` matches `guava-31.1-jre.jar`)
+- **`[jar]` 节**：JAR 文件名前缀匹配规则
+  - 根据 JAR 文件名（不含版本后缀）过滤整个 JAR 文件
+  - 示例：`spring-core` 将匹配 `spring-core-5.3.0.jar`、`spring-core-6.0.0.jar`
+  - 匹配不区分大小写
+  - 版本号自动处理（例如 `guava` 匹配 `guava-31.1-jre.jar`）
 
-- **`[class]` section**: Full class name prefix matching rules
-  - Filters specific classes based on their fully qualified names
-  - Example: `org.springframework` will match `org.springframework.core.xxx`
-  - Supports both package prefixes (`org.springframework`) and dotted-boundary prefixes (`java.`, `rx.`)
+- **`[class]` 节**：完整类名前缀匹配规则
+  - 根据类的完全限定名过滤特定类
+  - 示例：`org.springframework` 将匹配 `org.springframework.core.xxx`
+  - 支持包前缀（`org.springframework`）和点边界前缀（`java.`、`rx.`）
 
-### Extended Filter Rules
+### 扩展过滤规则
 
-The extended filter rules in `cfr_class_filter.conf` cover **189 class prefixes** and **210 JAR name prefixes**, including:
+`cfr_class_filter.conf` 中的扩展过滤规则涵盖 **189 个类前缀**和 **210 个 JAR 文件名前缀**，包括：
 
-**Popular Libraries:**
-- Spring Framework (spring-*, org.springframework.*)
-- Apache Commons (commons-*, org.apache.*)
-- Jackson JSON (jackson-*, com.fasterxml.jackson.*)
-- SLF4J/Logback (org.slf4j.*, ch.qos.logback.*)
+**流行库：**
+- Spring Framework (spring-*、org.springframework.*)
+- Apache Commons (commons-*、org.apache.*)
+- Jackson JSON (jackson-*、com.fasterxml.jackson.*)
+- SLF4J/Logback (org.slf4j.*、ch.qos.logback.*)
 - Netty (io.netty.*)
 - Bouncy Castle (org.bouncycastle.*)
 
-**Database/ORM:**
-- MySQL, PostgreSQL, Oracle, SQLite, MongoDB, Cassandra
-- Hibernate, MyBatis, JPA
+**数据库/ORM：**
+- MySQL、PostgreSQL、Oracle、SQLite、MongoDB、Cassandra
+- Hibernate、MyBatis、JPA
 
-**Message Queues & Networking:**
-- Apache Kafka, RabbitMQ, Redis clients
-- Netty, OkHttp, OkIo
-- SNMP4J, SSH libraries
+**消息队列和网络：**
+- Apache Kafka、RabbitMQ、Redis 客户端
+- Netty、OkHttp、OkIo
+- SNMP4J、SSH 库
 
-**Code Analysis & Generation:**
-- ASM, Javassist, cglib, ByteBuddy
-- ANTLR, Groovy
+**代码分析和生成：**
+- ASM、Javassist、cglib、ByteBuddy
+- ANTLR、Groovy
 
-**Testing:**
-- JUnit, Mockito, EasyMock, PowerMock, Hamcrest
+**测试：**
+- JUnit、Mockito、EasyMock、PowerMock、Hamcrest
 
-**And many more third-party libraries...**
+**以及更多第三方库...**
 
-**Legacy Format (Backward Compatible):**
+**传统格式（向后兼容）：**
 
-Lines without a section header are treated as class name prefix rules:
+没有节标题的行被视为类名前缀规则：
 
 ```
-# Legacy format - treated as class rules
+# 传统格式 - 作为类规则处理
 com.mycompany.internal
 org.mylibrary
 ```
 
-**File Format Rules:**
+**文件格式规则：**
 
-- Each line should contain one rule
-- Lines starting with `#` are treated as comments
-- Empty lines are ignored
-- Section headers (`[jar]`, `[class]`) are case-insensitive
+- 每行应包含一条规则
+- 以 `#` 开头的行被视为注释
+- 空行被忽略
+- 节标题（`[jar]`、`[class]`）不区分大小写
 
-### Example Usage
+### 使用示例
 
 ```bash
-# Decompile a JAR with class filtering enabled
+# 使用类过滤启用反编译 JAR
 java -jar cfr.jar myapp.jar --enableclassfilter --outputdir ./output
 
-# Decompile all class/jar files found under a directory recursively
+# 反编译在目录下递归找到的所有 class/jar 文件
 java -jar cfr.jar ./input-dir --outputdir ./output
 
-# Recursively scan a directory and apply class/jar filtering at the same time
+# 递归扫描目录并同时应用类/JAR 过滤
 java -jar cfr.jar ./input-dir --enableclassfilter --outputdir ./output
 
-# Flat output - all decompiled files are placed in the output directory without preserving package structure
+# 平坦输出 - 所有反编译的文件将直接放在输出目录中，不保留包结构
 java -jar cfr.jar myapp.jar --outputdir ./output --flatoutput
 
-# Show CFR version comment header in each decompiled file (disabled by default)
+# 显示 CFR 版本注释头（默认关闭）
 java -jar cfr.jar myapp.jar --showversion
 
-# Show decompiler status comments in output (disabled by default)
+# 显示反编译器状态注释（默认关闭）
 java -jar cfr.jar myapp.jar --comments
 
-# View help for the filter option
+# 查看过滤选项的帮助
 java -jar cfr.jar --help enableclassfilter
 ```
 
-# Getting CFR
+# 获取 CFR
 
-The main site for CFR is <a href="https://www.benf.org/other/cfr">benf.org/other/cfr</a>, where releases are available with a bunch of rambling musings from the author.
+CFR 的主站是 <a href="https://www.benf.org/other/cfr">benf.org/other/cfr</a>，可以在此处下载发布版本。
 
-Since 0.145, Binaries are published on github along with release tags.
+自 0.145 版本起，二进制文件已随发布标签一起发布在 github 上。
 
-You can also download CFR from your favourite <a href="https://mvnrepository.com/artifact/org.benf/cfr">maven</a> repo, though releases are published a few days late usually, to allow for release regret.
+您还可以从您最喜欢的 <a href="https://mvnrepository.com/artifact/org.benf/cfr">maven</a> 仓库下载 CFR，但发布通常会延迟几天，以允许发布后悔期。
 
-# Issues
+# 问题
 
-If you have an issue, please **_DO NOT_** include copyright materials.  I will have to delete your issue.
+如果您遇到问题，请**不要**包含版权材料。否则我必须删除您的 issue。
 
-# Building CFR
+# 构建 CFR
 
-Dead easy!
+非常简单！
 
-Just ensure you have [Maven](https://maven.apache.org/) installed. Then `mvn compile` in the root directory of this project will get you what you need.
+只需确保已安装 [Maven](https://maven.apache.org/)。然后在项目根目录运行 `mvn compile` 即可获得所需内容。
 
-Note: If you encounter a `maven-compiler-plugin...: Compilation failure` error while trying to compile the project then your `JAVA_HOME` environment variable is probably pointing to a JDK version that doesn't support `6` for the `source` or `target` compile options.
-Fix this by pointing `JAVA_HOME` to a JDK version that still supports compiling to Java 1.6 such as JDK 11. Also note, the version of Java on your `JAVA` may need to be greater than 1.6 if you are using Maven version `>=3.3.1` which requires Java 1.7. The best solution is to use JDK 8, 9, 10 or 11 for both your `PATH` and `JAVA_HOME`.
+注意：如果在尝试编译项目时遇到 `maven-compiler-plugin...: Compilation failure` 错误，那么您的 `JAVA_HOME` 环境变量可能指向不支持 `6` 作为 `source` 或 `target` 编译选项的 JDK 版本。请将 `JAVA_HOME` 指向支持编译到 Java 1.6 的 JDK 版本（如 JDK 11）。还要注意，如果您使用的 Maven 版本 `>=3.3.1`，则您使用的 Java 版本可能需要大于 1.6（因为 Maven 3.3.1 需要 Java 1.7）。最佳解决方案是为 `PATH` 和 `JAVA_HOME` 使用 JDK 8、9、10 或 11。
 
-The main class is `org.benf.cfr.reader.Main`, so once you've built, you can test it out (from `target/classes`)
+主类是 `org.benf.cfr.reader.Main`，因此构建完成后，您可以（从 `target/classes`）测试它：
 ```
 java org.benf.cfr.reader.Main java.lang.Object
 ```
-to get CFR to decompile `java.lang.Object`.
+让 CFR 反编译 `java.lang.Object`。
 
 
-## Decompilation tests
+## 反编译测试
 
-As part of the Maven build automatic decompilation tests are performed. They verify that the current decompiled output of CFR matches the expected previous output. The test data (Java class and JAR files) are part of a separate Git repository; it is therefore necessary to clone this repository with `git clone --recurse-submodules`. The expected output and CFR test configuration is however part of this repository to allow altering it without having to modify the corresponding test data. The test data is in the `decompilation-test/test-data` directory, and the respective expected data and custom configuration is in the `decompilation-test/test-data-expected-output` directory (with a similar directory structure, see [Expected data structure](#expected-data-structure) below).
+作为 Maven 构建的一部分，会自动执行反编译测试。它们验证 CFR 的当前反编译输出与预期的先前输出是否匹配。测试数据（Java 类和 JAR 文件）是单独 Git 仓库的一部分；因此需要使用 `git clone --recurse-submodules` 克隆此仓库。预期输出和 CFR 测试配置是此仓库的一部分，以便在不修改相应测试数据的情况下进行更改。测试数据在 `decompilation-test/test-data` 目录中，相应的预期数据和自定义配置在 `decompilation-test/test-data-expected-output` 目录中（具有类似的目录结构，请参阅下面的[预期数据结构](#预期数据结构)）。
 
-The decompilation tests are also performed by the GitHub workflow, and in case of test failures the unified diff is available in a [workflow artifact](https://docs.github.com/en/actions/managing-workflow-runs/downloading-workflow-artifacts) called "decompilation-test-failures-diff".
+反编译测试也由 GitHub workflow 执行，如果测试失败，统一 diff 可在名为 "decompilation-test-failures-diff" 的 [workflow artifact](https://docs.github.com/en/actions/managing-workflow-runs/downloading-workflow-artifacts) 中获取。
 
-**The expected output is not the gold standard**, it merely describes the currently expected output. There is nothing wrong with adjusting the expected output, if the changes to the decompilation results are reasonable.
+**预期输出不是黄金标准**，它只是描述当前预期的输出。如果反编译结果的更改是合理的，可以调整预期输出。
 
-The test class is [`org.benf.cfr.test.DecompilationTest`](decompilation-test/src/org/benf/cfr/test/DecompilationTest.java). It can be modified to adjust the test directories, or to ignore certain class files or JARs. Additionally it is possible to directly execute the tests there from the IDE. This usually gives better output than what is shown by Maven, and allows using the built-in IDE functionality for showing differences between the expected and the actual data.
+测试类是 [`org.benf.cfr.test.DecompilationTest`](decompilation-test/src/org/benf/cfr/test/DecompilationTest.java)。可以修改它来调整测试目录，或忽略某些类文件或 JAR。此外，还可以直接从 IDE 执行那里的测试。这通常比 Maven 显示的结果更好，并且允许使用内置 IDE 功能显示预期数据和实际数据之间的差异。
 
-### Options file
+### 选项文件
 
-The decompilation process can be customized by adding an options file. Each line of it specifies a CFR option, with key and value separated by a space. Empty lines and lines starting with `#` are ignored and can be used for comments.
+可以通过添加选项文件来自定义反编译过程。它的每一行指定一个 CFR 选项，键和值用空格分隔。空行和以 `#` 开头的行被忽略，可用于注释。
 
-Example:
+示例：
 ```
-# Enable identifier renaming
+# 启用标识符重命名
 renameillegalidents true
 ```
 
-See [Expected data structure](#expected-data-structure) below for how to name the file and where to place it.
+请参阅下面的[预期数据结构](#预期数据结构)了解如何命名文件以及放置位置。
 
-### Expected data structure
+### 预期数据结构
 
-#### Class files
+#### 类文件
 
-For class files the expected data and custom configuration is in the same respective location under `test-data-expected-output`, with the file names being based on the class file name.
+对于类文件，预期数据和自定义配置位于 `test-data-expected-output` 下相应的位置，文件名基于类文件名。
 
-For example, for the class file `test-data/classes/subdir/MyClass.class` the following files can be used:
+例如，对于类文件 `test-data/classes/subdir/MyClass.class`，可以使用以下文件：
 
 - `test-data-expected-output/classes/subdir/`
-    - `MyClass.expected.java`  
-      Contains the expected decompiled Java output, optionally with [decompilation notes](#decompilation-note-comments).
-    - `MyClass.options`  
-      An optional [options file](#options-file) customizing decompilation.
-    - `MyClass.expected.summary`  
-      Contains the expected summary reported by the CFR API. Can be omitted when no summary is produced.
-    - `MyClass.expected.exceptions`  
-      Contains the expected exceptions reported by the CFR API. Can be omitted when no exception is reported.
+    - `MyClass.expected.java`
+      包含预期的反编译 Java 输出，可选地带[反编译注释](#反编译注释)。
+    - `MyClass.options`
+      可选的[选项文件](#选项文件)，用于自定义反编译。
+    - `MyClass.expected.summary`
+      包含 CFR API 报告的预期摘要。当不产生摘要时可以省略。
+    - `MyClass.expected.exceptions`
+      包含 CFR API 报告的预期异常。当不报告异常时可以省略。
 
-#### JAR files
+#### JAR 文件
 
-For JAR files the expected data and custom configuration is inside a directory with the name of the JAR file in the respective location under `test-data-expected-output`. Expected Java output files include the package name in their file name, for example `mypackage.MyClass.java`. The options file and the expected summary and exceptions file use the "file name" `_`. For [multi-release JARs](https://openjdk.java.net/jeps/238) the directory contains subdirectories for version specific classes. The directory name has the form `java-<version>`.
+对于 JAR 文件，预期数据和自定义配置位于 `test-data-expected-output` 下相应位置下同名目录中。预期 Java 输出文件在其文件名中包含包名，例如 `mypackage.MyClass.java`。选项文件和预期摘要及异常文件使用 "文件名" `_`。[多版本 JAR](https://openjdk.java.net/jeps/238) 的目录包含版本特定类的子目录。目录名的形式为 `java-<version>`。
 
-For example, for the multi-release JAR file `test-data/jars/subdir/MyJar.jar` the following files can be used:
+例如，对于多版本 JAR 文件 `test-data/jars/subdir/MyJar.jar`，可以使用以下文件：
 - `test-data-expected-output/jars/subdir/MyJar/`
-    - `mypackage.MyClass.java`  
-      Contains the expected decompiled Java output for the class `mypackage.MyClass`, optionally with [decompilation notes](#decompilation-note-comments).
-    - `java-11/mypackage.MyClass.java`  
-      Contains the expected decompiled Java output for a class file specific to Java 11 and higher (for multi-release JARs).
-    - `_.options`  
-      An optional [options file](#options-file) customizing decompilation.
-    - `_.expected.summary`  
-      Contains the expected summary reported by the CFR API. Can be omitted when no summary is produced.
-    - `_.expected.exceptions`  
-      Contains the expected exceptions reported by the CFR API. Can be omitted when no exception is reported.
+    - `mypackage.MyClass.java`
+      包含类 `mypackage.MyClass` 的预期反编译 Java 输出，可选地带[反编译注释](#反编译注释)。
+    - `java-11/mypackage.MyClass.java`
+      包含特定于 Java 11 及更高版本的类文件的预期反编译 Java 输出（用于多版本 JAR）。
+    - `_.options`
+      可选的[选项文件](#选项文件)，用于自定义反编译。
+    - `_.expected.summary`
+      包含 CFR API 报告的预期摘要。当不产生摘要时可以省略。
+    - `_.expected.exceptions`
+      包含 CFR API 报告的预期异常。当不报告异常时可以省略。
 
-### Decompilation note comments
+### 反编译注释
 
-The expected Java output files support comments representing _decompilation notes_. They are ignored during comparison with the actual Java output and can for example be used to indicate incorrect or improvable CFR output. There are two kinds of decompilation notes:
+预期的 Java 输出文件支持注释表示_反编译注释_。在与实际 Java 输出进行比较时会忽略它们，例如可以用于指示不正确或可改进的 CFR 输出。有两种反编译注释：
 
-- Line: Start with `//#` (optionally prefixed with whitespace)
-- Inline: `/*# ... #*/`
+- 行注释：以 `//#` 开头（可选地以空白字符为前缀）
+- 行内注释：`/*# ... #*/`
 
-Line decompilation notes should be used sparingly, especially in large files, because they shift line numbers for the diff files (due to being removed during comparison), which can be confusing.
+应谨慎使用行反编译注释，特别是在大文件中，因为它们会在比较期间移动行号（由于在比较时被删除），可能会造成混淆。
 
-Example:
+示例：
 ```java
-//# Line decompilation note
+//# 行反编译注释
 public class MyClass {
-    public static void main(String[] stringArray/*# Inline decompilation note #*/) {
+    public static void main(String[] stringArray/*# 行内反编译注释 #*/) {
         ...
     }
 }
 ```
 
-### Updating / creating expected data
+### 更新/创建预期数据
 
-When adding a lot of new classes or JAR files for the decompilation tests or when a change to CFR affects the output for a lot of classes or JAR files, manually creating or updating the expected output can be rather cumbersome. For these cases the following system properties exist which help with this. They can be set with `-D<system-property>` when running tests. However, when these system properties are set, the respective tests will still fail (but the expected data is updated) to prevent accidentally using them for regular test execution.
+当为反编译测试添加大量新类或 JAR 文件时，或者当 CFR 的更改影响大量类或 JAR 文件的输出时，手动创建或更新预期数据可能相当繁琐。对于这些情况，存在以下系统属性可以帮助您。它们可以在运行测试时使用 `-D<system-property>` 设置。但是，当设置这些系统属性时，相应的测试仍会失败（但预期数据会更新），以防止将它们用于常规测试执行。
 
-- `cfr.decompilation-test.create-expected`  
-Generates all missing expected test data based on the current CFR output.
-- `cfr.decompilation-test.update-expected`  
-Updates the expected test data to match the actual data produced by CFR. Note that this does not work for expected Java output using [decompilation notes](#decompilation-note-comments) because those comments would get lost. The affected tests have to be updated manually.
+- `cfr.decompilation-test.create-expected`
+  基于当前 CFR 输出生成所有缺失的预期测试数据。
+- `cfr.decompilation-test.update-expected`
+  更新预期测试数据以匹配 CFR 生成的实际数据。请注意，这不适用于使用[反编译注释](#反编译注释)的预期 Java 输出，因为这些注释会丢失。受影响的测试必须手动更新。

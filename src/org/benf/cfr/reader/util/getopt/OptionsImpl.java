@@ -378,7 +378,7 @@ public class OptionsImpl implements Options {
             "sugarretrolambda", defaultFalseBooleanDecoder,
             "Where possible, resugar uses of retro lambda"));
     public static final PermittedOptionProvider.Argument<Boolean> SHOW_CFR_VERSION = register(new PermittedOptionProvider.Argument<Boolean>(
-            "showversion", defaultTrueBooleanDecoder,
+            "showversion", defaultFalseBooleanDecoder,
             "Show used CFR version in header (handy to turn off when regression testing)"));
     public static final PermittedOptionProvider.Argument<Boolean> DECODE_FINALLY = register(new PermittedOptionProvider.Argument<Boolean>(
             "decodefinally", defaultTrueBooleanDecoder,

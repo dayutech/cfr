@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Set;
 
 public class CfrDriverImpl implements CfrDriver {
+    private static final String FLAT_OUTPUT_FLAG = "flatoutput";
     private final Options options;
     private final ClassFileSource2 classFileSource;
     private final OutputSinkFactory outputSinkFactory;
@@ -86,22 +87,23 @@ public class CfrDriverImpl implements CfrDriver {
     }
 
     private List<AnalysisTarget> expandTargets(List<String> toAnalyse) {
+        boolean flatOutput = options.isOptionSet(FLAT_OUTPUT_FLAG);
         Set<AnalysisTarget> expanded = new LinkedHashSet<AnalysisTarget>();
         for (String path : toAnalyse) {
-            collectTarget(new File(path), path, null, expanded);
+            collectTarget(new File(path), path, null, expanded, flatOutput);
         }
         return ListFactory.newList(expanded);
     }
 
-    private void collectTarget(File file, String originalPath, File scanRoot, Set<AnalysisTarget> expanded) {
+    private void collectTarget(File file, String originalPath, File scanRoot, Set<AnalysisTarget> expanded, boolean flatOutput) {
         if (!file.exists() || !file.isDirectory()) {
             expanded.add(new AnalysisTarget(originalPath, null, null));
             return;
         }
-        collectDirectoryTargets(file, file, expanded);
+        collectDirectoryTargets(file, file, expanded, flatOutput);
     }
 
-    private void collectDirectoryTargets(File scanRoot, File directory, Set<AnalysisTarget> expanded) {
+    private void collectDirectoryTargets(File scanRoot, File directory, Set<AnalysisTarget> expanded, boolean flatOutput) {
         File[] files = directory.listFiles();
         if (files == null) {
             return;
@@ -109,15 +111,24 @@ public class CfrDriverImpl implements CfrDriver {
         Arrays.sort(files);
         for (File file : files) {
             if (file.isDirectory()) {
-                collectDirectoryTargets(scanRoot, file, expanded);
+                collectDirectoryTargets(scanRoot, file, expanded, flatOutput);
                 continue;
             }
             String lowerName = file.getName().toLowerCase();
             if (lowerName.endsWith(".class")) {
-                expanded.add(new AnalysisTarget(file.getAbsolutePath(), null, getRelativePath(scanRoot, file)));
+                if (flatOutput) {
+                    expanded.add(new AnalysisTarget(file.getAbsolutePath(), null, null));
+                } else {
+                    expanded.add(new AnalysisTarget(file.getAbsolutePath(), null, getRelativePath(scanRoot, file)));
+                }
             } else if (lowerName.endsWith(".jar")) {
-                String relativePath = getRelativePath(scanRoot, file);
-                expanded.add(new AnalysisTarget(file.getAbsolutePath(), toOutputPrefix(removeExtension(relativePath)), relativePath));
+                if (flatOutput) {
+                    String jarNameNoExt = removeExtension(file.getName());
+                    expanded.add(new AnalysisTarget(file.getAbsolutePath(), toOutputPrefix(jarNameNoExt), null));
+                } else {
+                    String relativePath = getRelativePath(scanRoot, file);
+                    expanded.add(new AnalysisTarget(file.getAbsolutePath(), toOutputPrefix(removeExtension(relativePath)), relativePath));
+                }
             }
         }
     }

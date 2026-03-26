@@ -75,7 +75,7 @@ org.mylibrary
 
 ### Extended Filter Rules
 
-The extended filter rules in `cfr_class_filter.conf` cover **189 class prefixes** and **210 JAR name prefixes**, including:
+The extended filter rules in `cfr_class_filter.conf` cover **390 class prefixes** and **210 JAR name prefixes**, including:
 
 **Popular Libraries:**
 - Spring Framework (spring-*, org.springframework.*)
@@ -102,6 +102,28 @@ The extended filter rules in `cfr_class_filter.conf` cover **189 class prefixes*
 - JUnit, Mockito, EasyMock, PowerMock, Hamcrest
 
 **And many more third-party libraries...**
+
+### Rule De-duplication
+
+Class rules are now globally minimized by prefix coverage:
+
+- If a broader rule exists, covered specific rules are removed.
+- Example: when `log4j` exists, `log4j-core` is redundant and removed.
+- This keeps rules concise while preserving effective filter behavior.
+
+### Generate Class Rules From JAR Scan
+
+Use `scan_jar_packages.py` to scan jars and update `[class]` rules:
+
+```bash
+python scan_jar_packages.py --scan-dir "D:\WorkDirQiax\VulnDiscov" --config-file "cfr_class_filter.conf" --min-count 10
+```
+
+Notes:
+
+- The script recursively scans all `.jar` files under `--scan-dir`.
+- Extracted prefixes are merged into `[class]`.
+- Exact rules covered by broader prefixes are automatically dropped.
 
 **Legacy Format (Backward Compatible):**
 

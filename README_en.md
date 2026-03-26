@@ -23,6 +23,8 @@ Use the `--enableclassfilter` option to enable class filtering:
 java -jar cfr.jar myapp.jar --enableclassfilter
 ```
 
+If you also want a final list of fully skipped JARs, add `--showskippedjars` (it is suppressed by `--silent`).
+
 ### Built-in Filter Rules
 
 CFR now keeps only a **small default built-in set** (popular libraries such as Spring, Apache Commons/Log4j, Guava/Gson, SLF4J/Logback, Netty, Jackson, JUnit, Mockito).
@@ -154,8 +156,14 @@ java -jar cfr.jar ./input-dir --outputdir ./output
 # Recursively scan a directory and apply class/jar filtering at the same time
 java -jar cfr.jar ./input-dir --enableclassfilter --outputdir ./output
 
-# Flat output - all decompiled files are placed in the output directory without preserving package structure
-java -jar cfr.jar myapp.jar --outputdir ./output --flatoutput
+# Flat output (recursive directory input) - by default still keeps each JAR's relative directory prefix
+java -jar cfr.jar ./input-dir --outputdir ./output --flatoutput
+
+# Flat output + no JAR directory prefix (won't create jar-name folders like test/)
+java -jar cfr.jar ./input-dir --outputdir ./output --flatoutput --flatnojardir
+
+# Enable class filtering and print skipped JARs at the end
+java -jar cfr.jar ./input-dir --enableclassfilter --showskippedjars --outputdir ./output
 
 # Show CFR version comment header in each decompiled file (disabled by default)
 java -jar cfr.jar myapp.jar --showversion

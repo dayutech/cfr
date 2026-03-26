@@ -75,7 +75,7 @@ org.mylibrary
 
 ### 扩展过滤规则
 
-`cfr_class_filter.conf` 中的扩展过滤规则涵盖 **189 个类前缀**和 **210 个 JAR 文件名前缀**，包括：
+`cfr_class_filter.conf` 中的扩展过滤规则涵盖 **390 个类前缀**和 **210 个 JAR 文件名前缀**，包括：
 
 **流行库：**
 - Spring Framework (spring-*、org.springframework.*)
@@ -102,6 +102,28 @@ org.mylibrary
 - JUnit、Mockito、EasyMock、PowerMock、Hamcrest
 
 **以及更多第三方库...**
+
+### 规则去重策略
+
+类规则会按“前缀覆盖关系”进行全局精简：
+
+- 若存在更广泛前缀，已被覆盖的精确规则会被移除。
+- 示例：存在 `log4j` 时，`log4j-core` 视为冗余并移除。
+- 这样可以在不改变实际过滤效果的前提下保持规则简洁。
+
+### 使用 JAR 扫描生成类规则
+
+可以通过 `scan_jar_packages.py` 扫描 JAR 并更新 `[class]` 规则：
+
+```bash
+python scan_jar_packages.py --scan-dir "D:\WorkDirQiax\VulnDiscov" --config-file "cfr_class_filter.conf" --min-count 10
+```
+
+说明：
+
+- 脚本会递归扫描 `--scan-dir` 下所有 `.jar` 文件。
+- 提取到的类名前缀会合并到 `[class]`。
+- 被更广泛前缀覆盖的精确规则会自动剔除。
 
 **传统格式（向后兼容）：**
 

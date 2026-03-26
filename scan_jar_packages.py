@@ -1,261 +1,285 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-递归扫描指定目录下的所有 jar 包，提取常见的目录前缀（包名），
-统计方式：统计类文件数量而不是 jar 文件数量
+Scan JAR files recursively, extract common class package prefixes, and update
+cfr_class_filter.conf [class] rules with global de-duplication.
 """
 
+import argparse
 import os
-import zipfile
 import re
+import zipfile
 from collections import Counter
+from typing import Dict, List, Sequence, Set, Tuple
 
 
-def extract_package_prefixes(jar_path):
+EXCLUDED_PREFIX_PATTERNS = [
+    r"^java\\.",
+    r"^javax\\.",
+    r"^sun\\.",
+    r"^com\\.sun\\.",
+    r"^jdk\\.",
+    r"^org\\.w3c",
+    r"^org\\.xml",
+    r"^org\\.omg",
+    r"^org\\.ietf",
+    r"^org\\.jcp",
+    r"^meta\\.",
+]
+
+
+def extract_package_prefixes(jar_path: str) -> Counter:
     """
-    从 jar 包中提取二级及以上的包名前缀
-    返回一个包含前缀及其类文件数量的字典
+    Extract two-level package prefixes from class entries in one jar.
+    Example: org/example/foo/Bar.class -> org.example
     """
     prefixes = Counter()
-    try:
-        with zipfile.ZipFile(jar_path, 'r') as zf:
-            for name in zf.namelist():
-                # 只处理 .class 文件
-                if name.endswith('.class'):
-                    dir_path = '/'.join(name.split('/')[:-1])
-                    
-                    # 跳过 META-INF 等特殊目录
-                    if not dir_path or dir_path.startswith('META-INF'):
-                        continue
-                    
-                    parts = dir_path.split('/')
-                    
-                    # 只提取二级包名前缀
-                    if len(parts) >= 2:
-                        prefix = '.'.join(parts[:2])
-                        prefixes[prefix] += 1
-    except Exception as e:
-        pass
+    with zipfile.ZipFile(jar_path, "r") as zf:
+        for name in zf.namelist():
+            if not name.endswith(".class"):
+                continue
+            dir_path = "/".join(name.split("/")[:-1])
+            if not dir_path or dir_path.startswith("META-INF"):
+                continue
+            parts = dir_path.split("/")
+            if len(parts) >= 2:
+                prefixes[".".join(parts[:2])] += 1
     return prefixes
 
 
-def scan_jar_files(directory):
-    """
-    递归扫描目录下所有 jar 文件，统计包名前缀对应的类文件数量
-    """
+def scan_jar_files(directory: str, progress_step: int = 200) -> Counter:
+    """Recursively scan all jar files and return package-prefix class counts."""
     prefix_counter = Counter()
     jar_count = 0
     error_count = 0
-    
+
     print(f"开始递归扫描目录: {directory}")
-    
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            if file.lower().endswith('.jar'):
-                jar_path = os.path.join(root, file)
-                jar_count += 1
-                if jar_count % 200 == 0:
-                    print(f"  已扫描 {jar_count} 个 jar 文件...")
-                
-                try:
-                    prefixes = extract_package_prefixes(jar_path)
-                    for prefix, count in prefixes.items():
-                        prefix_counter[prefix] += count
-                except Exception as e:
-                    error_count += 1
-    
-    print(f"\n扫描完成:")
+    for root, _, files in os.walk(directory):
+        for file_name in files:
+            if not file_name.lower().endswith(".jar"):
+                continue
+            jar_path = os.path.join(root, file_name)
+            jar_count += 1
+            if progress_step > 0 and jar_count % progress_step == 0:
+                print(f"  已扫描 {jar_count} 个 jar 文件...")
+            try:
+                prefix_counter.update(extract_package_prefixes(jar_path))
+            except Exception:
+                error_count += 1
+
+    print("\n扫描完成:")
     print(f"  - 共扫描 {jar_count} 个 jar 文件")
     print(f"  - {error_count} 个文件无法读取")
     print(f"  - 发现 {len(prefix_counter)} 个唯一二级包名前缀")
     print(f"  - 总计 {sum(prefix_counter.values())} 个类文件")
-    
     return prefix_counter
 
 
-def is_valid_package_prefix(prefix):
-    """
-    检查是否是有效的包名前缀
-    """
-    parts = prefix.split('.')
+def is_valid_package_prefix(prefix: str) -> bool:
+    """Validate dotted package prefix parts."""
+    parts = prefix.split(".")
     for part in parts:
-        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', part):
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", part):
             return False
     return True
 
 
-def get_existing_prefixes():
-    """
-    获取配置文件中已存在的前缀
-    """
-    return {
-        'com.mysql', 'org.tuckey', 'com.lambdaworks', 'org.owasp',
-        'net.spy', 'com.lmax', 'org.springframework', 'org.slf4j',
-        'ch.qos.logback', 'io.netty', 'io.reactivex',
-        'org.junit', 'org.mockito', 'org.hamcrest', 'org.hibernate',
-        'com.amazonaws', 'com.azure', 'com.fasterxml', 'com.google', 'com.microsoft',
-        'com.thoughtworks.xstream', 'gov.nist', 'io.frinx', 'io.github',
-        'io.grpc', 'io.jsonwebtoken', 'io.micrometer', 'io.vertx',
-        'net.bytebuddy', 'net.sf', 'org.apache',
-        'software.amazon', 'org.joda', 'org.aspectj', 'org.checkerframework',
-        'org.activiti', 'org.bouncycastle', 'org.eclipse', 'org.glassfish',
-        'org.jboss', 'org.jvnet', 'org.modelmapper', 'org.opendaylight',
-        'org.springdoc', 'reactor', 'org.antlr'
-    }
+def canonical_rule(rule: str) -> str:
+    """Normalize trailing dot for coverage checks."""
+    return rule.strip().rstrip(".")
 
 
-def filter_prefixes(prefix_counter, min_count=10):
+def is_covered_by_broader(specific: str, broader: str) -> bool:
     """
-    过滤出常见的包名前缀
-    min_count: 最小类文件数量
+    True when `broader` is same as or broader package of `specific`.
+    Example: org.apache covers org.apache.commons.
     """
-    existing_prefixes = get_existing_prefixes()
-    
-    # 需要排除的前缀模式
-    excluded_patterns = [
-        r'^java\.', r'^javax\.', r'^sun\.', r'^com\.sun\.',
-        r'^jdk\.', r'^org\.w3c', r'^org\.xml', r'^org\.omg',
-        r'^org\.ietf', r'^org\.jcp', r'^META'
-    ]
-    
-    # 需要排除的特定前缀（已在配置中）
-    excluded_prefixes = {
-        'org.apache', 'org.springframework', 'org.slf4j', 'com.fasterxml',
-        'io.netty', 'io.reactivex', 'org.hibernate', 'org.bouncycastle',
-        'org.eclipse', 'org.jboss', 'org.glassfish', 'org.junit',
-        'org.mockito', 'com.google', 'com.microsoft', 'com.amazonaws',
-        'com.azure', 'io.grpc', 'io.micrometer', 'io.vertx',
-        'net.bytebuddy', 'net.sf', 'org.aspectj', 'org.joda',
-        'reactor', 'org.antlr', 'org.checkerframework', 'org.activiti',
-        'org.opendaylight', 'org.springdoc', 'org.modelmapper', 'org.jvnet',
-        'software.amazon', 'io.github', 'io.frinx', 'gov.nist',
-        'com.thoughtworks.xstream', 'io.jsonwebtoken', 'org.owasp',
-        'com.lambdaworks', 'org.tuckey', 'com.lmax', 'net.spy',
-        'ch.qos.logback', 'org.hamcrest'
-    }
-    
-    filtered = []
+    return specific == broader or specific.startswith(broader + ".")
+
+
+def split_config_sections(lines: Sequence[str]) -> Tuple[List[str], List[str]]:
+    """Return prefix lines (up to [class]) and existing class rules."""
+    class_idx = None
+    for i, line in enumerate(lines):
+        if line.strip().lower() == "[class]":
+            class_idx = i
+            break
+    if class_idx is None:
+        raise ValueError("Missing [class] section in config file.")
+
+    prefix_lines = list(lines[: class_idx + 1])
+    class_rules: List[str] = []
+    for line in lines[class_idx + 1 :]:
+        value = line.strip()
+        if not value or value.startswith("#"):
+            continue
+        class_rules.append(value)
+    return prefix_lines, class_rules
+
+
+def choose_existing_rule_text(existing_forms: Sequence[str], canonical: str) -> str:
+    """Keep dotted style if that canonical already has a dotted representation."""
+    dotted = [x for x in existing_forms if x.endswith(".")]
+    if dotted:
+        return dotted[0]
+    if existing_forms:
+        return existing_forms[0]
+    return canonical
+
+
+def build_candidate_prefixes(
+    prefix_counter: Counter,
+    min_count: int,
+    excluded_prefix_patterns: Sequence[re.Pattern],
+) -> List[Tuple[str, int]]:
+    candidates: List[Tuple[str, int]] = []
     for prefix, count in prefix_counter.most_common():
-        # 检查是否是有效的包名
+        if count < min_count:
+            continue
         if not is_valid_package_prefix(prefix):
             continue
-        
-        # 检查是否已存在
-        if prefix in existing_prefixes or prefix in excluded_prefixes:
+        if any(pat.match(prefix) for pat in excluded_prefix_patterns):
             continue
-        
-        # 检查是否是已存在前缀的子前缀
-        is_subprefix = False
-        for existing in existing_prefixes | excluded_prefixes:
-            if prefix.startswith(existing + '.'):
-                is_subprefix = True
-                break
-        if is_subprefix:
-            continue
-        
-        # 检查是否匹配排除模式
-        excluded = False
-        for pattern in excluded_patterns:
-            if re.match(pattern, prefix):
-                excluded = True
-                break
-        if excluded:
-            continue
-        
-        if count >= min_count:
-            filtered.append((prefix, count))
-    
-    return filtered
+        candidates.append((prefix, count))
+    return candidates
 
 
-def optimize_prefixes(filtered_prefixes):
+def merge_and_minimize_class_rules(
+    existing_rules: Sequence[str], candidates: Sequence[Tuple[str, int]]
+) -> Tuple[List[str], List[str]]:
     """
-    优化前缀列表，保留最短的有效前缀
+    Merge candidates into existing rules, then globally remove precise rules
+    that are covered by broader rules.
     """
-    # 按长度排序，短前缀优先
-    sorted_prefixes = sorted(filtered_prefixes, key=lambda x: (len(x[0]), -x[1]))
-    
-    result = []
-    for prefix, count in sorted_prefixes:
-        # 检查是否被已有前缀覆盖
-        is_covered = False
-        for existing_prefix, _ in result:
-            if prefix.startswith(existing_prefix + '.'):
-                is_covered = True
-                break
-        if not is_covered:
-            result.append((prefix, count))
-    
-    # 按出现次数排序
-    result.sort(key=lambda x: -x[1])
-    return result
+    existing_by_canonical: Dict[str, List[str]] = {}
+    for rule in existing_rules:
+        c = canonical_rule(rule)
+        existing_by_canonical.setdefault(c, []).append(rule)
+
+    merged_canonical: Set[str] = set(existing_by_canonical.keys())
+    added_before_min: List[str] = []
+    for prefix, _ in candidates:
+        c = canonical_rule(prefix)
+        if c in merged_canonical:
+            continue
+        if any(is_covered_by_broader(c, ex) for ex in merged_canonical):
+            continue
+        merged_canonical.add(c)
+        added_before_min.append(c)
+
+    # Keep broader prefixes first.
+    sorted_all = sorted(merged_canonical, key=lambda x: (x.count("."), len(x), x))
+    minimal: List[str] = []
+    for c in sorted_all:
+        if any(is_covered_by_broader(c, broad) for broad in minimal):
+            continue
+        minimal.append(c)
+
+    final_rules = [
+        choose_existing_rule_text(existing_by_canonical.get(c, []), c)
+        for c in sorted(minimal)
+    ]
+    added_kept = [c for c in added_before_min if c in set(minimal)]
+    return final_rules, added_kept
 
 
-def main():
-    scan_dir = r'C:\CustomData\VulDisc'
-    config_file = r'c:\CustomData\cfr\cfr_class_filter.conf'
-    
-    # 扫描 jar 文件
-    prefix_counter = scan_jar_files(scan_dir)
-    
-    # 显示所有前缀（按类文件数量排序）
+def update_class_rules_in_config(config_file: str, class_rules: Sequence[str], encoding: str) -> None:
+    with open(config_file, "r", encoding=encoding) as f:
+        lines = f.read().splitlines()
+    prefix_lines, _ = split_config_sections(lines)
+    new_content = "\n".join(prefix_lines + list(class_rules)) + "\n"
+    with open(config_file, "w", encoding=encoding) as f:
+        f.write(new_content)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Scan jar package prefixes and update cfr_class_filter.conf [class] rules."
+    )
+    parser.add_argument("--scan-dir", required=True, help="Directory to recursively scan for jars.")
+    parser.add_argument(
+        "--config-file",
+        default="cfr_class_filter.conf",
+        help="Path to cfr_class_filter.conf (default: ./cfr_class_filter.conf)",
+    )
+    parser.add_argument(
+        "--min-count",
+        type=int,
+        default=10,
+        help="Minimum class count threshold for a scanned prefix to be considered.",
+    )
+    parser.add_argument(
+        "--top",
+        type=int,
+        default=100,
+        help="Show top N scanned prefixes by class count.",
+    )
+    parser.add_argument(
+        "--encoding",
+        default="utf-8",
+        help="Config file encoding (default: utf-8).",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Only print planned changes, do not modify config file.",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    compiled_excludes = [re.compile(x, re.IGNORECASE) for x in EXCLUDED_PREFIX_PATTERNS]
+
+    prefix_counter = scan_jar_files(args.scan_dir)
+
     print("\n" + "=" * 60)
-    print("所有二级包名前缀 (按类文件数量排序，前100个):")
+    print(f"所有二级包名前缀 (按类文件数量排序，前{args.top}个):")
     print("=" * 60)
-    for prefix, count in prefix_counter.most_common(100):
-        if is_valid_package_prefix(prefix):
-            print(f"  {prefix}: {count} 个类")
-    
-    # 过滤出常见前缀
-    filtered_prefixes = filter_prefixes(prefix_counter, min_count=10)
-    
-    # 优化前缀列表
-    optimized_prefixes = optimize_prefixes(filtered_prefixes)
-    
-    print("\n" + "=" * 60)
-    print("优化后的包名前缀 (需要添加到配置文件):")
-    print("=" * 60)
-    for prefix, count in optimized_prefixes:
+    shown = 0
+    for prefix, count in prefix_counter.most_common():
+        if not is_valid_package_prefix(prefix):
+            continue
         print(f"  {prefix}: {count} 个类")
-    
-    # 读取现有配置文件
-    with open(config_file, 'r', encoding='utf-8') as f:
-        content = f.read()
-    
-    # 找到 [class] 节的位置
-    class_section_match = re.search(r'\[class\](.*?)(?=\[|$)', content, re.DOTALL)
-    if class_section_match:
-        existing_classes = set()
-        for line in class_section_match.group(1).strip().split('\n'):
-            line = line.strip()
-            if line and not line.startswith('#'):
-                existing_classes.add(line)
-        
-        # 找出需要添加的新规则
-        new_filters = []
-        for prefix, count in optimized_prefixes:
-            class_filter = prefix + '.'
-            if class_filter not in existing_classes and prefix not in existing_classes:
-                new_filters.append(class_filter)
-        
-        print(f"\n需要添加的新类名过滤规则: {len(new_filters)} 条")
-        
-        # 将新规则写入文件
-        if new_filters:
-            new_content = content.rstrip()
-            if not new_content.endswith('\n'):
-                new_content += '\n'
-            
-            for nf in sorted(new_filters):
-                new_content += nf + '\n'
-            
-            with open(config_file, 'w', encoding='utf-8') as f:
-                f.write(new_content)
-            
-            print(f"已将 {len(new_filters)} 条新规则添加到配置文件")
-        else:
-            print("没有需要添加的新规则")
+        shown += 1
+        if shown >= args.top:
+            break
+
+    with open(args.config_file, "r", encoding=args.encoding) as f:
+        config_lines = f.read().splitlines()
+    _, existing_class_rules = split_config_sections(config_lines)
+
+    candidates = build_candidate_prefixes(
+        prefix_counter=prefix_counter,
+        min_count=args.min_count,
+        excluded_prefix_patterns=compiled_excludes,
+    )
+    final_class_rules, added_kept = merge_and_minimize_class_rules(
+        existing_rules=existing_class_rules, candidates=candidates
+    )
+
+    print("\n" + "=" * 60)
+    print("类前缀规则更新摘要:")
+    print("=" * 60)
+    print(f"  配置中原有[class]规则: {len(existing_class_rules)}")
+    print(f"  扫描候选规则(阈值>={args.min_count}): {len(candidates)}")
+    print(f"  新增后保留规则: {len(added_kept)}")
+    print(f"  最终[class]规则总数: {len(final_class_rules)}")
+
+    if added_kept:
+        print("\n新增并保留的规则(前100条):")
+        for item in added_kept[:100]:
+            print(f"  {item}")
+    else:
+        print("\n无新增规则（均已存在或被更广泛前缀覆盖）。")
+
+    if args.dry_run:
+        print("\nDRY RUN: 未写入配置文件。")
+        return
+
+    update_class_rules_in_config(args.config_file, final_class_rules, args.encoding)
+    print(f"\n已更新配置文件: {args.config_file}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

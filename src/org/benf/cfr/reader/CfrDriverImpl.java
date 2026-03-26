@@ -26,6 +26,8 @@ import java.util.Set;
 
 public class CfrDriverImpl implements CfrDriver {
     private static final String FLAT_OUTPUT_FLAG = "flatoutput";
+    private static final String FLAT_NO_JAR_DIR_FLAG = "flatnojardir";
+    private static final String SHOW_SKIPPED_JARS_FLAG = "showskippedjars";
     private final Options options;
     private final ClassFileSource2 classFileSource;
     private final OutputSinkFactory outputSinkFactory;
@@ -51,6 +53,9 @@ public class CfrDriverImpl implements CfrDriver {
     @Override
     public void analyse(List<String> toAnalyse) {
         List<AnalysisTarget> analysisTargets = expandTargets(toAnalyse);
+        final boolean showSkippedJars = options.isOptionSet(SHOW_SKIPPED_JARS_FLAG);
+        final boolean silent = options.getOption(OptionsImpl.SILENT);
+        List<String> skippedJars = ListFactory.newList();
         /*
          * There's an interesting question here - do we want to skip inner classes, if we've been given a wildcard?
          * (or a wildcard expanded by the operating system).
@@ -79,31 +84,41 @@ public class CfrDriverImpl implements CfrDriver {
             }
 
             if (type == AnalysisType.JAR || type == AnalysisType.WAR) {
-                Driver.doJar(dcCommonState, path, type, dumperFactory, analysisTarget.outputPrefix);
+                if (Driver.doJar(dcCommonState, path, type, dumperFactory, analysisTarget.outputPrefix)) {
+                    skippedJars.add(path);
+                }
             } else if (type == AnalysisType.CLASS) {
                 Driver.doClass(dcCommonState, path, skipInnerClass, dumperFactory, analysisTarget.outputPrefix, analysisTarget.relativePath);
+            }
+        }
+
+        if (showSkippedJars && !silent && !skippedJars.isEmpty()) {
+            System.out.println("Skipped JARs:");
+            for (String skippedJar : skippedJars) {
+                System.out.println("  " + skippedJar);
             }
         }
     }
 
     private List<AnalysisTarget> expandTargets(List<String> toAnalyse) {
         boolean flatOutput = options.isOptionSet(FLAT_OUTPUT_FLAG);
+        boolean flatOutputNoJarDir = options.isOptionSet(FLAT_NO_JAR_DIR_FLAG);
         Set<AnalysisTarget> expanded = new LinkedHashSet<AnalysisTarget>();
         for (String path : toAnalyse) {
-            collectTarget(new File(path), path, null, expanded, flatOutput);
+            collectTarget(new File(path), path, null, expanded, flatOutput, flatOutputNoJarDir);
         }
         return ListFactory.newList(expanded);
     }
 
-    private void collectTarget(File file, String originalPath, File scanRoot, Set<AnalysisTarget> expanded, boolean flatOutput) {
+    private void collectTarget(File file, String originalPath, File scanRoot, Set<AnalysisTarget> expanded, boolean flatOutput, boolean flatOutputNoJarDir) {
         if (!file.exists() || !file.isDirectory()) {
             expanded.add(new AnalysisTarget(originalPath, null, null));
             return;
         }
-        collectDirectoryTargets(file, file, expanded, flatOutput);
+        collectDirectoryTargets(file, file, expanded, flatOutput, flatOutputNoJarDir);
     }
 
-    private void collectDirectoryTargets(File scanRoot, File directory, Set<AnalysisTarget> expanded, boolean flatOutput) {
+    private void collectDirectoryTargets(File scanRoot, File directory, Set<AnalysisTarget> expanded, boolean flatOutput, boolean flatOutputNoJarDir) {
         File[] files = directory.listFiles();
         if (files == null) {
             return;
@@ -111,7 +126,7 @@ public class CfrDriverImpl implements CfrDriver {
         Arrays.sort(files);
         for (File file : files) {
             if (file.isDirectory()) {
-                collectDirectoryTargets(scanRoot, file, expanded, flatOutput);
+                collectDirectoryTargets(scanRoot, file, expanded, flatOutput, flatOutputNoJarDir);
                 continue;
             }
             String lowerName = file.getName().toLowerCase();
@@ -123,8 +138,9 @@ public class CfrDriverImpl implements CfrDriver {
                 }
             } else if (lowerName.endsWith(".jar")) {
                 if (flatOutput) {
-                    String jarNameNoExt = removeExtension(file.getName());
-                    expanded.add(new AnalysisTarget(file.getAbsolutePath(), toOutputPrefix(jarNameNoExt), null));
+                    String relativePath = getRelativePath(scanRoot, file);
+                    String outputPrefix = flatOutputNoJarDir ? null : toOutputPrefix(removeExtension(relativePath));
+                    expanded.add(new AnalysisTarget(file.getAbsolutePath(), outputPrefix, relativePath));
                 } else {
                     String relativePath = getRelativePath(scanRoot, file);
                     expanded.add(new AnalysisTarget(file.getAbsolutePath(), toOutputPrefix(removeExtension(relativePath)), relativePath));

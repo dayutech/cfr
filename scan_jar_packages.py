@@ -1,38 +1,46 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Scan JAR files recursively, extract common class package prefixes, and update
-cfr_class_filter.conf [class] rules with global de-duplication.
+递归扫描 JAR：
+- 提取 class 包名前缀，更新 [class]
+- 提取 jar 文件名前缀，更新 [jar]
+
+特性：
+- 自动聚合相似前缀，只保留最大覆盖范围
+- 排除常见域名前缀（org/com/net/io 等）作为聚合结果
+- 仅输出实际写入配置文件的新规则
 """
 
 import argparse
 import os
 import re
 import zipfile
-from collections import Counter
-from typing import Dict, List, Sequence, Set, Tuple
+from collections import Counter, defaultdict
+from typing import Dict, Iterable, List, Sequence, Set, Tuple
 
 
-EXCLUDED_PREFIX_PATTERNS = [
-    r"^java\\.",
-    r"^javax\\.",
-    r"^sun\\.",
-    r"^com\\.sun\\.",
-    r"^jdk\\.",
-    r"^org\\.w3c",
-    r"^org\\.xml",
-    r"^org\\.omg",
-    r"^org\\.ietf",
-    r"^org\\.jcp",
-    r"^meta\\.",
+EXCLUDED_CLASS_PREFIX_PATTERNS = [
+    r"^java\.",
+    r"^javax\.",
+    r"^sun\.",
+    r"^com\.sun\.",
+    r"^jdk\.",
+    r"^org\.w3c",
+    r"^org\.xml",
+    r"^org\.omg",
+    r"^org\.ietf",
+    r"^org\.jcp",
+    r"^meta\.",
 ]
 
+COMMON_DOMAIN_ROOTS = {
+    "org", "com", "net", "io", "edu", "gov",
+    "cn", "uk", "de", "jp", "fr", "ru", "au", "us", "int",
+}
 
-def extract_package_prefixes(jar_path: str) -> Counter:
-    """
-    Extract two-level package prefixes from class entries in one jar.
-    Example: org/example/foo/Bar.class -> org.example
-    """
+
+def extract_class_package_prefixes(jar_path: str) -> Counter:
+    """从 class 路径提取二级包名前缀：org/example/Foo.class -> org.example"""
     prefixes = Counter()
     with zipfile.ZipFile(jar_path, "r") as zf:
         for name in zf.namelist():
@@ -47,36 +55,21 @@ def extract_package_prefixes(jar_path: str) -> Counter:
     return prefixes
 
 
-def scan_jar_files(directory: str, progress_step: int = 200) -> Counter:
-    """Recursively scan all jar files and return package-prefix class counts."""
-    prefix_counter = Counter()
-    jar_count = 0
-    error_count = 0
+def normalize_jar_prefix_from_filename(file_name: str) -> str:
+    """由文件名提取 jar 规则前缀（去 .jar、去尾部版本号）。"""
+    name = file_name.strip().lower()
+    if name.endswith(".jar"):
+        name = name[:-4]
 
-    print(f"开始递归扫描目录: {directory}")
-    for root, _, files in os.walk(directory):
-        for file_name in files:
-            if not file_name.lower().endswith(".jar"):
-                continue
-            jar_path = os.path.join(root, file_name)
-            jar_count += 1
-            if progress_step > 0 and jar_count % progress_step == 0:
-                print(f"  已扫描 {jar_count} 个 jar 文件...")
-            try:
-                prefix_counter.update(extract_package_prefixes(jar_path))
-            except Exception:
-                error_count += 1
-
-    print("\n扫描完成:")
-    print(f"  - 共扫描 {jar_count} 个 jar 文件")
-    print(f"  - {error_count} 个文件无法读取")
-    print(f"  - 发现 {len(prefix_counter)} 个唯一二级包名前缀")
-    print(f"  - 总计 {sum(prefix_counter.values())} 个类文件")
-    return prefix_counter
+    # spring-core-5.3.31 -> spring-core
+    # netty-all-4.1.108.final -> netty-all
+    m = re.match(r"^(.*?)(?:[-_.]v?\d[0-9a-z._-]*)$", name)
+    if m and m.group(1):
+        return m.group(1).rstrip("-_.")
+    return name
 
 
 def is_valid_package_prefix(prefix: str) -> bool:
-    """Validate dotted package prefix parts."""
     parts = prefix.split(".")
     for part in parts:
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", part):
@@ -84,201 +77,483 @@ def is_valid_package_prefix(prefix: str) -> bool:
     return True
 
 
-def canonical_rule(rule: str) -> str:
-    """Normalize trailing dot for coverage checks."""
+def is_valid_jar_prefix(prefix: str) -> bool:
+    if not prefix:
+        return False
+    for c in prefix:
+        if not (c.isalnum() or c in "-_."):
+            return False
+    return True
+
+
+def _count_total_jars(directory: str) -> int:
+    total = 0
+    for root, _, files in os.walk(directory):
+        for file_name in files:
+            if file_name.lower().endswith(".jar"):
+                total += 1
+    return total
+
+
+def scan_jar_files(directory: str) -> Tuple[Counter, Counter]:
+    class_prefix_counter = Counter()
+    jar_prefix_counter = Counter()
+    total_jars = _count_total_jars(directory)
+    progress_step = 10 if total_jars <= 200 else 200
+    scanned = 0
+
+    print(f"开始递归扫描目录: {directory}")
+    print(f"待扫描 JAR 数量: {total_jars}")
+
+    for root, _, files in os.walk(directory):
+        for file_name in files:
+            if not file_name.lower().endswith(".jar"):
+                continue
+            scanned += 1
+
+            jar_prefix = normalize_jar_prefix_from_filename(file_name)
+            if is_valid_jar_prefix(jar_prefix):
+                jar_prefix_counter[jar_prefix] += 1
+
+            jar_path = os.path.join(root, file_name)
+            try:
+                class_prefix_counter.update(extract_class_package_prefixes(jar_path))
+            except Exception:
+                # 损坏包或权限问题直接跳过
+                pass
+
+            if scanned % progress_step == 0 or scanned == total_jars:
+                print(f"已扫描 {scanned}/{total_jars} 个 JAR")
+
+    print("扫描完成")
+
+    return class_prefix_counter, jar_prefix_counter
+
+
+def canonical_class_rule(rule: str) -> str:
     return rule.strip().rstrip(".")
 
 
-def is_covered_by_broader(specific: str, broader: str) -> bool:
-    """
-    True when `broader` is same as or broader package of `specific`.
-    Example: org.apache covers org.apache.commons.
-    """
+def class_rule_covers(specific: str, broader: str) -> bool:
     return specific == broader or specific.startswith(broader + ".")
 
 
-def split_config_sections(lines: Sequence[str]) -> Tuple[List[str], List[str]]:
-    """Return prefix lines (up to [class]) and existing class rules."""
+def canonical_jar_rule(rule: str) -> str:
+    return rule.strip().lower()
+
+
+def jar_rule_covers(specific: str, broader: str) -> bool:
+    # 与 ClassFilter.matchesJarPrefix 保持一致
+    return (
+        specific == broader
+        or specific.startswith(broader + "-")
+        or specific.startswith(broader + "_")
+        or specific.startswith(broader + ".")
+    )
+
+
+def parse_config_sections(lines: Sequence[str]) -> Tuple[List[str], List[str], List[str]]:
+    jar_idx = None
     class_idx = None
     for i, line in enumerate(lines):
-        if line.strip().lower() == "[class]":
+        v = line.strip().lower()
+        if v == "[jar]" and jar_idx is None:
+            jar_idx = i
+        elif v == "[class]" and class_idx is None:
             class_idx = i
-            break
-    if class_idx is None:
-        raise ValueError("Missing [class] section in config file.")
 
-    prefix_lines = list(lines[: class_idx + 1])
+    if jar_idx is None or class_idx is None or class_idx <= jar_idx:
+        raise ValueError("Config must contain [jar] and [class] sections in order")
+
+    header = [x for x in lines[:jar_idx] if x.strip()]
+
+    jar_rules: List[str] = []
+    for line in lines[jar_idx + 1 : class_idx]:
+        v = line.strip()
+        if not v or v.startswith("#"):
+            continue
+        jar_rules.append(v)
+
     class_rules: List[str] = []
     for line in lines[class_idx + 1 :]:
-        value = line.strip()
-        if not value or value.startswith("#"):
+        v = line.strip()
+        if not v or v.startswith("#"):
             continue
-        class_rules.append(value)
-    return prefix_lines, class_rules
+        class_rules.append(v)
+
+    return header, jar_rules, class_rules
 
 
-def choose_existing_rule_text(existing_forms: Sequence[str], canonical: str) -> str:
-    """Keep dotted style if that canonical already has a dotted representation."""
-    dotted = [x for x in existing_forms if x.endswith(".")]
-    if dotted:
-        return dotted[0]
+def choose_existing_class_text(existing_forms: Sequence[str], canonical: str) -> str:
+    # 统一格式：class 规则全部使用 trailing '.'，明确包边界匹配语义。
+    return canonical + "."
+
+
+def choose_existing_jar_text(existing_forms: Sequence[str], canonical: str) -> str:
     if existing_forms:
         return existing_forms[0]
     return canonical
 
 
-def build_candidate_prefixes(
-    prefix_counter: Counter,
-    min_count: int,
-    excluded_prefix_patterns: Sequence[re.Pattern],
-) -> List[Tuple[str, int]]:
-    candidates: List[Tuple[str, int]] = []
-    for prefix, count in prefix_counter.most_common():
-        if count < min_count:
+def build_class_candidates(
+    class_counter: Counter,
+    class_min_count: int,
+    excluded_patterns: Sequence[re.Pattern],
+    class_copt: int,
+) -> Dict[str, int]:
+    candidates: Dict[str, int] = {}
+    picked = 0
+    for prefix, count in class_counter.most_common():
+        if count < class_min_count:
             continue
         if not is_valid_package_prefix(prefix):
             continue
-        if any(pat.match(prefix) for pat in excluded_prefix_patterns):
+        if any(pat.match(prefix) for pat in excluded_patterns):
             continue
-        candidates.append((prefix, count))
+        candidates[canonical_class_rule(prefix)] = count
+        picked += 1
+        if class_copt > 0 and picked >= class_copt:
+            break
     return candidates
 
 
-def merge_and_minimize_class_rules(
-    existing_rules: Sequence[str], candidates: Sequence[Tuple[str, int]]
-) -> Tuple[List[str], List[str]]:
+def build_jar_candidates(jar_counter: Counter, jar_min_count: int, jar_top: int) -> Dict[str, int]:
+    candidates: Dict[str, int] = {}
+    picked = 0
+    for prefix, count in jar_counter.most_common():
+        if count < jar_min_count:
+            continue
+        if not is_valid_jar_prefix(prefix):
+            continue
+        candidates[canonical_jar_rule(prefix)] = count
+        picked += 1
+        if jar_top > 0 and picked >= jar_top:
+            break
+    return candidates
+
+
+def aggregate_class_candidates(raw: Dict[str, int]) -> Dict[str, int]:
     """
-    Merge candidates into existing rules, then globally remove precise rules
-    that are covered by broader rules.
+    对 class 候选做公共前缀聚合：
+    - brave.baggage + brave.handler -> brave
+    - 但 org/com/net/io 等顶层前缀不作为聚合结果
     """
+    if not raw:
+        return {}
+
+    agg = Counter(raw)
+    child_branches: Dict[str, Set[str]] = defaultdict(set)
+
+    for p, c in raw.items():
+        parts = p.split(".")
+        for i in range(1, len(parts)):
+            parent = ".".join(parts[:i])
+            child_branches[parent].add(parts[i])
+            agg[parent] += c
+
+    selected: List[str] = []
+    for p in sorted(agg.keys(), key=lambda x: (x.count("."), -agg[x], x)):
+        segs = p.split(".")
+        if len(segs) == 1 and segs[0].lower() in COMMON_DOMAIN_ROOTS:
+            continue
+        if any(class_rule_covers(p, s) for s in selected):
+            continue
+
+        keep = (p in raw) or (len(child_branches.get(p, set())) >= 2)
+        if keep:
+            selected.append(p)
+
+    return {p: int(agg[p]) for p in selected}
+
+
+def _jar_parent_once(prefix: str) -> Tuple[str, str]:
+    idx = max(prefix.rfind("-"), prefix.rfind("_"), prefix.rfind("."))
+    if idx <= 0:
+        return "", ""
+    return prefix[:idx], prefix[idx + 1 :]
+
+
+def aggregate_jar_candidates(raw: Dict[str, int]) -> Dict[str, int]:
+    """
+    对 jar 候选做公共前缀聚合：
+    - brave-handler + brave-internal -> brave
+    - org/com/net/io 等顶层前缀不作为聚合结果
+    """
+    if not raw:
+        return {}
+
+    agg = Counter(raw)
+    child_branches: Dict[str, Set[str]] = defaultdict(set)
+
+    for p, c in raw.items():
+        cur = p
+        while True:
+            parent, child = _jar_parent_once(cur)
+            if not parent:
+                break
+            child_branches[parent].add(child)
+            agg[parent] += c
+            cur = parent
+
+    selected: List[str] = []
+    for p in sorted(agg.keys(), key=lambda x: (len(re.split(r"[-_.]", x)), -agg[x], x)):
+        if p in COMMON_DOMAIN_ROOTS:
+            continue
+        if any(jar_rule_covers(p, s) for s in selected):
+            continue
+
+        keep = (p in raw) or (len(child_branches.get(p, set())) >= 2)
+        if keep:
+            selected.append(p)
+
+    return {p: int(agg[p]) for p in selected}
+
+
+def merge_and_minimize_class_rules(existing_rules: Sequence[str], candidates: Dict[str, int]) -> List[str]:
     existing_by_canonical: Dict[str, List[str]] = {}
     for rule in existing_rules:
-        c = canonical_rule(rule)
+        c = canonical_class_rule(rule)
         existing_by_canonical.setdefault(c, []).append(rule)
 
-    merged_canonical: Set[str] = set(existing_by_canonical.keys())
-    added_before_min: List[str] = []
-    for prefix, _ in candidates:
-        c = canonical_rule(prefix)
-        if c in merged_canonical:
-            continue
-        if any(is_covered_by_broader(c, ex) for ex in merged_canonical):
-            continue
-        merged_canonical.add(c)
-        added_before_min.append(c)
+    merged: Set[str] = set(existing_by_canonical.keys()) | set(candidates.keys())
 
-    # Keep broader prefixes first.
-    sorted_all = sorted(merged_canonical, key=lambda x: (x.count("."), len(x), x))
-    minimal: List[str] = []
-    for c in sorted_all:
-        if any(is_covered_by_broader(c, broad) for broad in minimal):
+    selected: List[str] = []
+    for c in sorted(merged, key=lambda x: (x.count("."), -candidates.get(x, 0), x)):
+        segs = c.split(".")
+        if len(segs) == 1 and segs[0].lower() in COMMON_DOMAIN_ROOTS:
             continue
-        minimal.append(c)
+        if any(class_rule_covers(c, b) for b in selected):
+            continue
+        selected.append(c)
 
-    final_rules = [
-        choose_existing_rule_text(existing_by_canonical.get(c, []), c)
-        for c in sorted(minimal)
+    return [
+        choose_existing_class_text(existing_by_canonical.get(c, []), c)
+        for c in sorted(selected)
     ]
-    added_kept = [c for c in added_before_min if c in set(minimal)]
-    return final_rules, added_kept
 
 
-def update_class_rules_in_config(config_file: str, class_rules: Sequence[str], encoding: str) -> None:
-    with open(config_file, "r", encoding=encoding) as f:
-        lines = f.read().splitlines()
-    prefix_lines, _ = split_config_sections(lines)
-    new_content = "\n".join(prefix_lines + list(class_rules)) + "\n"
+def merge_and_minimize_jar_rules(existing_rules: Sequence[str], candidates: Dict[str, int]) -> List[str]:
+    existing_by_canonical: Dict[str, List[str]] = {}
+    for rule in existing_rules:
+        c = canonical_jar_rule(rule)
+        existing_by_canonical.setdefault(c, []).append(rule)
+
+    merged: Set[str] = set(existing_by_canonical.keys()) | set(candidates.keys())
+
+    selected: List[str] = []
+    for c in sorted(merged, key=lambda x: (len(re.split(r"[-_.]", x)), -candidates.get(x, 0), x)):
+        if c in COMMON_DOMAIN_ROOTS:
+            continue
+        if any(jar_rule_covers(c, b) for b in selected):
+            continue
+        selected.append(c)
+
+    return [
+        choose_existing_jar_text(existing_by_canonical.get(c, []), c)
+        for c in sorted(selected)
+    ]
+
+
+def write_config(
+    config_file: str,
+    header_lines: Sequence[str],
+    jar_rules: Sequence[str],
+    class_rules: Sequence[str],
+    encoding: str,
+) -> None:
+    out: List[str] = []
+    out.extend([x for x in header_lines if x.strip()])
+    out.append("[jar]")
+    out.extend(jar_rules)
+    out.append("[class]")
+    out.extend(class_rules)
+
     with open(config_file, "w", encoding=encoding) as f:
-        f.write(new_content)
+        f.write("\n".join(out) + "\n")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Scan jar package prefixes and update cfr_class_filter.conf [class] rules."
+        description="Scan jars and update both [jar]/[class] rules with aggregation.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--scan-dir", required=True, help="Directory to recursively scan for jars.")
+    parser.add_argument("--scan-dir", required=True, help="递归扫描的根目录")
+    parser.add_argument("--config-file", default="cfr_class_filter.conf", help="过滤规则配置文件路径")
+
+    # 用户要求重命名
     parser.add_argument(
-        "--config-file",
-        default="cfr_class_filter.conf",
-        help="Path to cfr_class_filter.conf (default: ./cfr_class_filter.conf)",
-    )
-    parser.add_argument(
+        "--class-min-count",
         "--min-count",
+        dest="class_min_count",
         type=int,
-        default=10,
-        help="Minimum class count threshold for a scanned prefix to be considered.",
+        default=0,
+        help="类名前缀最小出现次数阈值（小于该值不纳入候选）",
     )
     parser.add_argument(
+        "--class-top",
+        "--class-copt",
         "--top",
+        dest="class_top",
         type=int,
         default=100,
-        help="Show top N scanned prefixes by class count.",
+        help="参与聚合的 class 候选前缀最大数量（按频次排序后截断）",
+    )
+
+    parser.add_argument(
+        "--jar-min-count",
+        type=int,
+        default=2,
+        help="JAR 包名前缀最小出现次数阈值（小于该值不纳入候选）",
     )
     parser.add_argument(
-        "--encoding",
-        default="utf-8",
-        help="Config file encoding (default: utf-8).",
+        "--jar-top",
+        type=int,
+        default=100,
+        help="参与聚合的 jar 候选前缀最大数量（按频次排序后截断）",
     )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Only print planned changes, do not modify config file.",
-    )
+    parser.add_argument("--encoding", default="utf-8", help="配置文件读写编码")
+    parser.add_argument("--yes", action="store_true", help="跳过交互确认，直接写入新增规则")
+    parser.add_argument("--dry-run", action="store_true", help="只显示拟新增规则，不写入配置文件")
     return parser.parse_args()
+
+
+def _parse_exclusion_input(text: str, is_class: bool) -> Set[str]:
+    """
+    解析逗号/空白分隔输入。
+    class 模式会去除末尾 '.' 再 canonical 化。
+    """
+    if not text.strip():
+        return set()
+    parts = re.split(r"[,\s]+", text.strip())
+    res: Set[str] = set()
+    for item in parts:
+        if not item:
+            continue
+        x = item.strip()
+        if is_class:
+            res.add(canonical_class_rule(x))
+        else:
+            res.add(canonical_jar_rule(x))
+    return res
+
+
+def _display_pending_additions(added_jar: Sequence[str], added_class: Sequence[str]) -> None:
+    print("拟新增 [jar] 规则:")
+    if not added_jar:
+        print("  (无)")
+    else:
+        for r in added_jar:
+            print(f"  {r}")
+
+    print("拟新增 [class] 规则:")
+    if not added_class:
+        print("  (无)")
+    else:
+        for r in added_class:
+            print(f"  {r}.")
+
+
+def _resolve_exclusion(text: str, is_class: bool, all_candidates: Sequence[str]) -> Set[str]:
+    t = text.strip()
+    if not t:
+        # 留空表示不删除
+        return set()
+    if t.upper() == "ALL":
+        return {canonical_class_rule(x) if is_class else canonical_jar_rule(x) for x in all_candidates}
+    return _parse_exclusion_input(t, is_class=is_class)
 
 
 def main() -> None:
     args = parse_args()
-    compiled_excludes = [re.compile(x, re.IGNORECASE) for x in EXCLUDED_PREFIX_PATTERNS]
 
-    prefix_counter = scan_jar_files(args.scan_dir)
-
-    print("\n" + "=" * 60)
-    print(f"所有二级包名前缀 (按类文件数量排序，前{args.top}个):")
-    print("=" * 60)
-    shown = 0
-    for prefix, count in prefix_counter.most_common():
-        if not is_valid_package_prefix(prefix):
-            continue
-        print(f"  {prefix}: {count} 个类")
-        shown += 1
-        if shown >= args.top:
-            break
+    class_counter, jar_counter = scan_jar_files(args.scan_dir)
 
     with open(args.config_file, "r", encoding=args.encoding) as f:
         config_lines = f.read().splitlines()
-    _, existing_class_rules = split_config_sections(config_lines)
 
-    candidates = build_candidate_prefixes(
-        prefix_counter=prefix_counter,
-        min_count=args.min_count,
-        excluded_prefix_patterns=compiled_excludes,
-    )
-    final_class_rules, added_kept = merge_and_minimize_class_rules(
-        existing_rules=existing_class_rules, candidates=candidates
-    )
+    header_lines, existing_jar_rules, existing_class_rules = parse_config_sections(config_lines)
 
-    print("\n" + "=" * 60)
-    print("类前缀规则更新摘要:")
-    print("=" * 60)
-    print(f"  配置中原有[class]规则: {len(existing_class_rules)}")
-    print(f"  扫描候选规则(阈值>={args.min_count}): {len(candidates)}")
-    print(f"  新增后保留规则: {len(added_kept)}")
-    print(f"  最终[class]规则总数: {len(final_class_rules)}")
+    class_excludes = [re.compile(x, re.IGNORECASE) for x in EXCLUDED_CLASS_PREFIX_PATTERNS]
+    class_raw = build_class_candidates(class_counter, args.class_min_count, class_excludes, args.class_top)
+    jar_raw = build_jar_candidates(jar_counter, args.jar_min_count, args.jar_top)
 
-    if added_kept:
-        print("\n新增并保留的规则(前100条):")
-        for item in added_kept[:100]:
-            print(f"  {item}")
-    else:
-        print("\n无新增规则（均已存在或被更广泛前缀覆盖）。")
+    class_agg = aggregate_class_candidates(class_raw)
+    jar_agg = aggregate_jar_candidates(jar_raw)
 
-    if args.dry_run:
-        print("\nDRY RUN: 未写入配置文件。")
+    final_class_rules = merge_and_minimize_class_rules(existing_class_rules, class_agg)
+    final_jar_rules = merge_and_minimize_jar_rules(existing_jar_rules, jar_agg)
+
+    old_class_set = {canonical_class_rule(x) for x in existing_class_rules}
+    old_jar_set = {canonical_jar_rule(x) for x in existing_jar_rules}
+    new_class_set = {canonical_class_rule(x) for x in final_class_rules}
+    new_jar_set = {canonical_jar_rule(x) for x in final_jar_rules}
+
+    added_class = sorted(new_class_set - old_class_set)
+    added_jar = sorted(new_jar_set - old_jar_set)
+
+    if not added_jar and not added_class:
+        print("扫描完成，没有发现新增规则。")
         return
 
-    update_class_rules_in_config(args.config_file, final_class_rules, args.encoding)
-    print(f"\n已更新配置文件: {args.config_file}")
+    if args.dry_run:
+        # dry-run 输出将写入规则（不落盘）
+        _display_pending_additions(added_jar, added_class)
+        for r in added_jar:
+            print(f"[jar] {r}")
+        for r in added_class:
+            print(f"[class] {r}.")
+        return
+
+    # 默认交互确认：先确认是否整体写入
+    if not args.yes:
+        _display_pending_additions(added_jar, added_class)
+        try:
+            ans = input(
+                f"检测到新增规则: [jar]={len(added_jar)}, [class]={len(added_class)}。是否写入? [y/N]: "
+            ).strip().lower()
+        except EOFError:
+            ans = ""
+
+        if ans not in ("y", "yes"):
+            # 按用户要求：否认后允许输入“哪些应删除不添加”
+            try:
+                jar_ex_text = input("请输入不添加的 [jar] 规则（逗号/空格分隔；留空=都保留，ALL=全部删除）: ")
+                class_ex_text = input("请输入不添加的 [class] 规则（逗号/空格分隔；留空=都保留，ALL=全部删除）: ")
+            except EOFError:
+                jar_ex_text = ""
+                class_ex_text = ""
+
+            jar_ex = _resolve_exclusion(jar_ex_text, is_class=False, all_candidates=added_jar)
+            class_ex = _resolve_exclusion(class_ex_text, is_class=True, all_candidates=added_class)
+
+            jar_agg = {k: v for k, v in jar_agg.items() if k not in jar_ex}
+            class_agg = {k: v for k, v in class_agg.items() if k not in class_ex}
+
+            final_class_rules = merge_and_minimize_class_rules(existing_class_rules, class_agg)
+            final_jar_rules = merge_and_minimize_jar_rules(existing_jar_rules, jar_agg)
+
+            new_class_set = {canonical_class_rule(x) for x in final_class_rules}
+            new_jar_set = {canonical_jar_rule(x) for x in final_jar_rules}
+            added_class = sorted(new_class_set - old_class_set)
+            added_jar = sorted(new_jar_set - old_jar_set)
+
+            if not added_jar and not added_class:
+                print("过滤后没有可写入新增规则，已取消写入。")
+                return
+
+    write_config(
+        config_file=args.config_file,
+        header_lines=header_lines,
+        jar_rules=final_jar_rules,
+        class_rules=final_class_rules,
+        encoding=args.encoding,
+    )
+
+    # 仅输出被写入的规则
+    for r in added_jar:
+        print(f"[jar] {r}")
+    for r in added_class:
+        print(f"[class] {r}.")
 
 
 if __name__ == "__main__":

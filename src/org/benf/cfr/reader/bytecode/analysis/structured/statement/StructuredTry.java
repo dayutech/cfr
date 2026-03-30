@@ -249,6 +249,19 @@ public class StructuredTry extends AbstractStructuredStatement {
 
     @Override
     public Op04StructuredStatement getInline() {
+        Op04StructuredStatement in = getContainer();
+        List<Op04StructuredStatement> targets = in.getTargets();
+        if (targets.size() == 2) {
+            Op04StructuredStatement mCatch = targets.get(1);
+            if (mCatch.getStatement() instanceof StructuredCatch && mCatch.getSources().contains(in)) {
+                if (mCatch.getSources().size() == 1) {
+                    mCatch.nopOut();
+                }
+                mCatch.getSources().remove(in);
+            }
+            targets.remove(mCatch);
+        }
+
         return tryBlock;
     }
 

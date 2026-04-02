@@ -11,7 +11,7 @@ Alternately, to decompile an entire jar, simply provide the jar path, and if you
 
 If the target path is a directory, CFR will recursively scan that directory and all subdirectories, and decompile every `.class` and `.jar` file it finds.
 
-## Class Filtering
+## Class Filtering [NEW FEATURE]
 
 CFR supports filtering out known third-party library classes during decompilation. This can significantly speed up decompilation of large JAR files by skipping classes from common libraries like Spring, Apache Commons, Guava, etc.
 

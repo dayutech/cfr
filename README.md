@@ -11,7 +11,7 @@ CFR 可以反编译现代 Java 特性 - <a href="https://www.benf.org/other/cfr/
 
 如果目标路径是目录，CFR 会递归扫描该目录及其所有子目录，并反编译找到的每个 `.class` 和 `.jar` 文件。
 
-## 类过滤
+## 类过滤【新特性】
 
 CFR 支持在反编译过程中过滤掉已知的第三方库类。这可以显著加快大型 JAR 文件的反编译速度，通过跳过来自 Spring、Apache Commons、Guava 等常见库的类来提升性能。
 

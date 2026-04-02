@@ -74,6 +74,22 @@ org.mylibrary
   - Filters specific classes based on their fully qualified names
   - Example: `org.springframework` will match `org.springframework.core.xxx`
   - Supports both package prefixes (`org.springframework`) and dotted-boundary prefixes (`java.`, `rx.`)
+  - For fat-jar/war layouts, matching automatically normalizes `BOOT-INF/classes/` and `WEB-INF/classes/` prefixes, so rules like `io.vertx.` and `javax.` still match directly
+
+### Fully Qualified Name De-dup Cache (Optional)
+
+Use `--enableclassnamecache` to enable an in-run cache of already decompiled fully qualified class names and avoid duplicate decompilation.
+
+Activation requirements:
+
+- `--flatoutput` and `--flatnojardir` must both be enabled
+- If either one is missing, `--enableclassnamecache` is ignored (with a console message)
+
+Behavior:
+
+- The cache stores names in a hierarchical structure (`com -> test1 -> test2 -> ... -> Test`)
+- CFR checks the cache before decompilation; cache hits are skipped, misses are decompiled and then recorded
+- Cache size is bounded; eviction prioritizes entries with lower hit counts and deeper hierarchy to control memory use
 
 ### Extended Filter Rules
 
@@ -162,6 +178,9 @@ java -jar cfr.jar ./input-dir --outputdir ./output --flatoutput
 # Flat output + no JAR directory prefix (won't create jar-name folders like test/)
 java -jar cfr.jar ./input-dir --outputdir ./output --flatoutput --flatnojardir
 
+# Enable fully qualified class-name de-dup cache in flat output mode
+java -jar cfr.jar ./input-dir --outputdir ./output --flatoutput --flatnojardir --enableclassnamecache
+
 # Enable class filtering and print skipped JARs at the end
 java -jar cfr.jar ./input-dir --enableclassfilter --showskippedjars --outputdir ./output
 
@@ -173,6 +192,9 @@ java -jar cfr.jar myapp.jar --comments
 
 # View help for the filter option
 java -jar cfr.jar --help enableclassfilter
+
+# View help for the class-name cache flag
+java -jar cfr.jar --help enableclassnamecache
 ```
 
 # Getting CFR

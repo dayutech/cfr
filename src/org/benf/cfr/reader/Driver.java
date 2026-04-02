@@ -14,6 +14,7 @@ import org.benf.cfr.reader.util.AnalysisType;
 import org.benf.cfr.reader.util.CannotLoadClassException;
 import org.benf.cfr.reader.util.CfrVersionInfo;
 import org.benf.cfr.reader.util.ClassFilter;
+import org.benf.cfr.reader.util.DecompiledClassNameCache;
 import org.benf.cfr.reader.util.MiscConstants;
 import org.benf.cfr.reader.util.MiscUtils;
 import org.benf.cfr.reader.util.collections.Functional;
@@ -52,6 +53,10 @@ class Driver {
      *   files in a junk directory.
      */
     static void doClass(DCCommonState dcCommonState, String path, boolean skipInnerClass, DumperFactory dumperFactory, String outputPrefix, String relativePath) {
+        doClass(dcCommonState, path, skipInnerClass, dumperFactory, outputPrefix, relativePath, null);
+    }
+
+    static void doClass(DCCommonState dcCommonState, String path, boolean skipInnerClass, DumperFactory dumperFactory, String outputPrefix, String relativePath, DecompiledClassNameCache classNameCache) {
         Options options = dcCommonState.getOptions();
         ObfuscationMapping mapping = MappingFactory.get(options, dcCommonState);
         dcCommonState = new DCCommonState(dcCommonState, mapping);
@@ -65,9 +70,11 @@ class Driver {
         IllegalIdentifierDump illegalIdentifierDump = IllegalIdentifierDump.Factory.get(options);
         Dumper d = new ToStringDumper(); // sentinel dumper.
         ExceptionDumper ed = dumperFactory.getExceptionDumper();
+        ClassFile c = null;
+        boolean dumped = false;
         try {
             SummaryDumper summaryDumper = new NopSummaryDumper();
-            ClassFile c = dcCommonState.getClassFileMaybePath(path);
+            c = dcCommonState.getClassFileMaybePath(path);
             if (skipInnerClass && c.isInnerClass()) return;
 
             // 检查类是否应该被过滤
@@ -76,6 +83,9 @@ class Driver {
                 if (classFilter.shouldFilter(className)) {
                     return;
                 }
+            }
+            if (classNameCache != null && classNameCache.contains(c.getClassType().getRawName())) {
+                return;
             }
 
             dcCommonState.configureWith(c);
@@ -121,14 +131,22 @@ class Driver {
                 }
             }
             d.print("");
+            dumped = true;
         } catch (Exception e) {
             ed.noteException(path, null, e);
         } finally {
+            if (dumped && classNameCache != null && c != null) {
+                classNameCache.remember(c.getClassType().getRawName());
+            }
             if (d != null) d.close();
         }
     }
 
     static boolean doJar(DCCommonState dcCommonState, String path, AnalysisType analysisType, DumperFactory dumperFactory, String outputPrefix) {
+        return doJar(dcCommonState, path, analysisType, dumperFactory, outputPrefix, null);
+    }
+
+    static boolean doJar(DCCommonState dcCommonState, String path, AnalysisType analysisType, DumperFactory dumperFactory, String outputPrefix, DecompiledClassNameCache classNameCache) {
         Options options = dcCommonState.getOptions();
         final boolean silent = options.getOption(OptionsImpl.SILENT);
         IllegalIdentifierDump illegalIdentifierDump = IllegalIdentifierDump.Factory.get(options);
@@ -169,7 +187,7 @@ class Driver {
                 versionsSeen.add(forVersion);
                 List<Integer> localVersionsSeen = ListFactory.newList(versionsSeen);
                 List<JavaTypeInstance> types = entry.getValue();
-                doJarVersionTypes(forVersion, localVersionsSeen, dcCommonState, dumperFactory, illegalIdentifierDump, summaryDumper, progressDumper, types);
+                doJarVersionTypes(forVersion, localVersionsSeen, dcCommonState, dumperFactory, illegalIdentifierDump, summaryDumper, progressDumper, types, classNameCache);
             }
         } catch (Exception e) {
             dumperFactory.getExceptionDumper().noteException(path, "Exception analysing jar", e);
@@ -270,7 +288,7 @@ class Driver {
         }
     }
 
-    private static void doJarVersionTypes(int forVersion, final List<Integer> versionsSeen, DCCommonState dcCommonState, DumperFactory dumperFactory, IllegalIdentifierDump illegalIdentifierDump, SummaryDumper summaryDumper, ProgressDumper progressDumper, List<JavaTypeInstance> types) {
+    private static void doJarVersionTypes(int forVersion, final List<Integer> versionsSeen, DCCommonState dcCommonState, DumperFactory dumperFactory, IllegalIdentifierDump illegalIdentifierDump, SummaryDumper summaryDumper, ProgressDumper progressDumper, List<JavaTypeInstance> types, DecompiledClassNameCache classNameCache) {
         Options options = dcCommonState.getOptions();
         final boolean lomem = options.getOption(OptionsImpl.LOMEM);
         final Predicate<String> matcher = MiscUtils.mkRegexFilter(options.getOption(OptionsImpl.JAR_FILTER), true);
@@ -324,8 +342,14 @@ class Driver {
          */
         for (JavaTypeInstance type : types) {
             Dumper d = new ToStringDumper();  // Sentinel dumper.
+            ClassFile c = null;
+            boolean dumped = false;
             try {
-                ClassFile c = dcCommonState.getClassFile(type);
+                if (classNameCache != null && classNameCache.contains(type.getRawName())) {
+                    d = null;
+                    continue;
+                }
+                c = dcCommonState.getClassFile(type);
                 // Don't explicitly dump inner classes.  But make sure we ask the CLASS if it's
                 // an inner class, rather than using the name, as scala tends to abuse '$'.
                 if (c.isInnerClass()) {
@@ -352,6 +376,7 @@ class Driver {
                 c.dump(d);
                 d.newln();
                 d.newln();
+                dumped = true;
                 if (lomem) {
                     c.releaseCode();
                 }
@@ -360,6 +385,9 @@ class Driver {
             } catch (RuntimeException e) {
                 d.print(e.toString()).newln().newln().newln();
             } finally {
+                if (dumped && classNameCache != null && c != null) {
+                    classNameCache.remember(c.getClassType().getRawName());
+                }
                 if (d != null) d.close();
             }
 

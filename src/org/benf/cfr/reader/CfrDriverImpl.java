@@ -9,6 +9,7 @@ import org.benf.cfr.reader.state.ClassFileSourceImpl;
 import org.benf.cfr.reader.state.ClassFileSourceWrapper;
 import org.benf.cfr.reader.state.DCCommonState;
 import org.benf.cfr.reader.util.AnalysisType;
+import org.benf.cfr.reader.util.DecompiledClassNameCache;
 import org.benf.cfr.reader.util.collections.ListFactory;
 import org.benf.cfr.reader.util.getopt.Options;
 import org.benf.cfr.reader.util.getopt.OptionsImpl;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Set;
 
 public class CfrDriverImpl implements CfrDriver {
+    private static final String ENABLE_CLASSNAME_CACHE_FLAG = "enableclassnamecache";
     private static final String FLAT_OUTPUT_FLAG = "flatoutput";
     private static final String FLAT_NO_JAR_DIR_FLAG = "flatnojardir";
     private static final String SHOW_SKIPPED_JARS_FLAG = "showskippedjars";
@@ -55,6 +57,7 @@ public class CfrDriverImpl implements CfrDriver {
         List<AnalysisTarget> analysisTargets = expandTargets(toAnalyse);
         final boolean showSkippedJars = options.isOptionSet(SHOW_SKIPPED_JARS_FLAG);
         final boolean silent = options.getOption(OptionsImpl.SILENT);
+        final DecompiledClassNameCache classNameCache = buildClassNameCache(silent);
         List<String> skippedJars = ListFactory.newList();
         /*
          * There's an interesting question here - do we want to skip inner classes, if we've been given a wildcard?
@@ -84,11 +87,11 @@ public class CfrDriverImpl implements CfrDriver {
             }
 
             if (type == AnalysisType.JAR || type == AnalysisType.WAR) {
-                if (Driver.doJar(dcCommonState, path, type, dumperFactory, analysisTarget.outputPrefix)) {
+                if (Driver.doJar(dcCommonState, path, type, dumperFactory, analysisTarget.outputPrefix, classNameCache)) {
                     skippedJars.add(path);
                 }
             } else if (type == AnalysisType.CLASS) {
-                Driver.doClass(dcCommonState, path, skipInnerClass, dumperFactory, analysisTarget.outputPrefix, analysisTarget.relativePath);
+                Driver.doClass(dcCommonState, path, skipInnerClass, dumperFactory, analysisTarget.outputPrefix, analysisTarget.relativePath, classNameCache);
             }
         }
 
@@ -98,6 +101,24 @@ public class CfrDriverImpl implements CfrDriver {
                 System.out.println("  " + skippedJar);
             }
         }
+    }
+
+    private DecompiledClassNameCache buildClassNameCache(boolean silent) {
+        if (!options.isOptionSet(ENABLE_CLASSNAME_CACHE_FLAG)) {
+            return null;
+        }
+        boolean flatOutput = options.isOptionSet(FLAT_OUTPUT_FLAG);
+        boolean flatOutputNoJarDir = options.isOptionSet(FLAT_NO_JAR_DIR_FLAG);
+        if (flatOutput && flatOutputNoJarDir) {
+            return new DecompiledClassNameCache();
+        }
+        if (!silent) {
+            System.out.println(
+                    "Ignoring --" + ENABLE_CLASSNAME_CACHE_FLAG +
+                    " because it is only effective with --" + FLAT_OUTPUT_FLAG +
+                    " and --" + FLAT_NO_JAR_DIR_FLAG + ".");
+        }
+        return null;
     }
 
     private List<AnalysisTarget> expandTargets(List<String> toAnalyse) {

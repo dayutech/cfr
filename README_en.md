@@ -74,7 +74,7 @@ org.mylibrary
   - Filters specific classes based on their fully qualified names
   - Example: `org.springframework` will match `org.springframework.core.xxx`
   - Supports both package prefixes (`org.springframework`) and dotted-boundary prefixes (`java.`, `rx.`)
-  - For fat-jar/war layouts, matching automatically normalizes `BOOT-INF/classes/` and `WEB-INF/classes/` prefixes, so rules like `io.vertx.` and `javax.` still match directly
+  - For fat-jar/war/MR-JAR layouts, matching automatically normalizes `BOOT-INF/classes/`, `WEB-INF/classes/`, and `META-INF/versions/<ver>/` prefixes, so rules like `io.vertx.` and `javax.` still match directly
 
 ### Fully Qualified Name De-dup Cache (Optional)
 
@@ -90,6 +90,16 @@ Behavior:
 - The cache stores names in a hierarchical structure (`com -> test1 -> test2 -> ... -> Test`)
 - CFR checks the cache before decompilation; cache hits are skipped, misses are decompiled and then recorded
 - Cache size is bounded; eviction prioritizes entries with lower hit counts and deeper hierarchy to control memory use
+
+### Quick Mode (Optional)
+
+Use `--quickmode` to enable all of the following in one shot:
+
+- `--enableclassfilter`
+- `--flatoutput`
+- `--flatnojardir`
+- `--enableclassnamecache`
+- `--showskippedjars` (also accepts alias `--showskipedjars`)
 
 ### Extended Filter Rules
 
@@ -180,6 +190,9 @@ java -jar cfr.jar ./input-dir --outputdir ./output --flatoutput --flatnojardir
 
 # Enable fully qualified class-name de-dup cache in flat output mode
 java -jar cfr.jar ./input-dir --outputdir ./output --flatoutput --flatnojardir --enableclassnamecache
+
+# Quick mode (equivalent to enabling classfilter/flatoutput/flatnojardir/classnamecache/showskippedjars together)
+java -jar cfr.jar ./input-dir --outputdir ./output --quickmode
 
 # Enable class filtering and print skipped JARs at the end
 java -jar cfr.jar ./input-dir --enableclassfilter --showskippedjars --outputdir ./output

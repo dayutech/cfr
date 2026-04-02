@@ -12,6 +12,7 @@ import java.util.Map;
  * been decompiled in the current run.
  */
 public class DecompiledClassNameCache {
+    private static final String MULTI_RELEASE_NAME_PREFIX = "META-INF.versions.";
     private static final String BOOT_INF_CLASSES_NAME_PREFIX = "BOOT-INF.classes.";
     private static final String WEB_INF_CLASSES_NAME_PREFIX = "WEB-INF.classes.";
     private static final int DEFAULT_MAX_TERMINAL_ENTRIES = 32768;
@@ -148,6 +149,7 @@ public class DecompiledClassNameCache {
         while (normalized.startsWith(".")) {
             normalized = normalized.substring(1);
         }
+        normalized = stripMultiReleaseNamePrefixIgnoreCase(normalized);
         normalized = stripNamePrefixIgnoreCase(normalized, BOOT_INF_CLASSES_NAME_PREFIX);
         normalized = stripNamePrefixIgnoreCase(normalized, WEB_INF_CLASSES_NAME_PREFIX);
         if (normalized.endsWith(".class")) {
@@ -165,6 +167,24 @@ public class DecompiledClassNameCache {
             return value.substring(prefix.length());
         }
         return value;
+    }
+
+    private static String stripMultiReleaseNamePrefixIgnoreCase(String value) {
+        if (value.length() < MULTI_RELEASE_NAME_PREFIX.length()) {
+            return value;
+        }
+        if (!value.regionMatches(true, 0, MULTI_RELEASE_NAME_PREFIX, 0, MULTI_RELEASE_NAME_PREFIX.length())) {
+            return value;
+        }
+        int idx = MULTI_RELEASE_NAME_PREFIX.length();
+        int startDigits = idx;
+        while (idx < value.length() && Character.isDigit(value.charAt(idx))) {
+            idx++;
+        }
+        if (idx == startDigits || idx >= value.length() || value.charAt(idx) != '.') {
+            return value;
+        }
+        return value.substring(idx + 1);
     }
 
     private static class Node {

@@ -21,6 +21,8 @@ import java.util.Set;
  * - 可通过配置文件 cfr_class_filter.conf 添加自定义过滤规则
  */
 public class ClassFilter {
+    private static final String MULTI_RELEASE_PATH_PREFIX = "META-INF/versions/";
+    private static final String MULTI_RELEASE_NAME_PREFIX = "META-INF.versions.";
     private static final String BOOT_INF_CLASSES_PATH_PREFIX = "BOOT-INF/classes/";
     private static final String WEB_INF_CLASSES_PATH_PREFIX = "WEB-INF/classes/";
     private static final String BOOT_INF_CLASSES_NAME_PREFIX = "BOOT-INF.classes.";
@@ -294,6 +296,7 @@ public class ClassFilter {
         while (normalized.startsWith("/")) {
             normalized = normalized.substring(1);
         }
+        normalized = stripMultiReleasePathPrefixIgnoreCase(normalized);
         normalized = stripPathPrefixIgnoreCase(normalized, BOOT_INF_CLASSES_PATH_PREFIX);
         normalized = stripPathPrefixIgnoreCase(normalized, WEB_INF_CLASSES_PATH_PREFIX);
         return normalized;
@@ -301,12 +304,43 @@ public class ClassFilter {
 
     private static String normalizeClassNameForRuleMatch(String className) {
         String normalized = className.replace('/', '.').replace('\\', '.');
+        normalized = stripMultiReleaseNamePrefixIgnoreCase(normalized);
         normalized = stripNamePrefixIgnoreCase(normalized, BOOT_INF_CLASSES_NAME_PREFIX);
         normalized = stripNamePrefixIgnoreCase(normalized, WEB_INF_CLASSES_NAME_PREFIX);
         if (normalized.endsWith(".class")) {
             normalized = normalized.substring(0, normalized.length() - 6);
         }
         return normalized;
+    }
+
+    private static String stripMultiReleasePathPrefixIgnoreCase(String value) {
+        if (!startsWithIgnoreCase(value, MULTI_RELEASE_PATH_PREFIX)) {
+            return value;
+        }
+        int idx = MULTI_RELEASE_PATH_PREFIX.length();
+        int startDigits = idx;
+        while (idx < value.length() && Character.isDigit(value.charAt(idx))) {
+            idx++;
+        }
+        if (idx == startDigits || idx >= value.length() || value.charAt(idx) != '/') {
+            return value;
+        }
+        return value.substring(idx + 1);
+    }
+
+    private static String stripMultiReleaseNamePrefixIgnoreCase(String value) {
+        if (!startsWithIgnoreCase(value, MULTI_RELEASE_NAME_PREFIX)) {
+            return value;
+        }
+        int idx = MULTI_RELEASE_NAME_PREFIX.length();
+        int startDigits = idx;
+        while (idx < value.length() && Character.isDigit(value.charAt(idx))) {
+            idx++;
+        }
+        if (idx == startDigits || idx >= value.length() || value.charAt(idx) != '.') {
+            return value;
+        }
+        return value.substring(idx + 1);
     }
 
     private static String stripPathPrefixIgnoreCase(String value, String prefix) {

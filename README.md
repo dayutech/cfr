@@ -1,5 +1,7 @@
 # CFR - 另一个 Java 反编译器 \o/
 
+[English](README_en.md)
+
 这是 CFR 反编译器的公共代码库，主站托管于 <a href="https://www.benf.org/other/cfr">benf.org/other/cfr</a>
 
 CFR 可以反编译现代 Java 特性 - <a href="https://www.benf.org/other/cfr/java9observations.html">包括 Java <a href="java9stringconcat.html">9</a>、<a href="https://www.benf.org/other/cfr/switch_expressions.html">12</a> 和 <a href="https://www.benf.org/other/cfr/java14instanceof_pattern">14</a> 的许多特性</a>，但它完全使用 Java 6 编写，因此可以在任何地方使用！（<a href="https://www.benf.org/other/cfr/faq.html">常见问题</a>）- 它甚至可以很好地反编译其他 JVM 语言生成的 class 文件！

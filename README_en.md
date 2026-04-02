@@ -1,5 +1,7 @@
 # CFR - Another Java Decompiler \o/
 
+[中文](README.md)
+
 This is the public repository for the CFR decompiler, main site hosted at <a href="https://www.benf.org/other/cfr">benf.org/other/cfr</a>
 
 CFR will decompile modern Java features - <a href="https://www.benf.org/other/cfr/java9observations.html">including much of Java <a href="java9stringconcat.html">9</a>, <a href="https://www.benf.org/other/cfr/switch_expressions.html">12</a> &amp; <a href="https://www.benf.org/other/cfr/java14instanceof_pattern">14</a>, but is written entirely in Java 6, so will work anywhere!  (<a href="https://www.benf.org/other/cfr/faq.html">FAQ</a>) - It'll even make a decent go of turning class files from other JVM languages back into java!</p>

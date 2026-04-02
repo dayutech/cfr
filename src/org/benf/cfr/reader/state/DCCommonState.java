@@ -133,12 +133,6 @@ public class DCCommonState {
         return null;
     }
 
-    private static boolean isMultiReleaseJar(JarContent jarContent) {
-        String val = jarContent.getManifestEntries().get(MiscConstants.MULTI_RELEASE_KEY);
-        if (val == null) return false;
-        return Boolean.parseBoolean(val);
-    }
-
     public TreeMap<Integer, List<JavaTypeInstance>> explicitlyLoadJar(String path, AnalysisType type) {
         return explicitlyLoadJar(path, type, null);
     }
@@ -155,27 +149,25 @@ public class DCCommonState {
                 return ListFactory.newList();
             }
         });
-        boolean isMultiReleaseJar = isMultiReleaseJar(jarContent);
-
         for (String classPath : jarContent.getClassFiles()) {
             // If the classPath is from a multi release jar, then we're going
             // to have to process it in a more unpleasant way.
             int version = 0;
-            if (isMultiReleaseJar) {
-                Matcher matcher = MiscConstants.MULTI_RELEASE_PATH_PATTERN.matcher(classPath);
-                // It's kind of irritating that we're reprocessing each name, rather than
-                // determining this in a tree structured walk through the source jar.
-                if (matcher.matches()) {
-                    try {
-                        String ver = matcher.group(1);
-                        version = Integer.parseInt(ver);
-                        classPath = matcher.group(2);
-                    } catch (Exception e) {
-                        // This is unfortunate - someone's playing silly buggers!
-                        // Ignore this file - it won't get seen by jre.
-                        // (should also be impossible to get here given regex).
-                        continue;
-                    }
+            Matcher matcher = MiscConstants.MULTI_RELEASE_PATH_PATTERN.matcher(classPath);
+            // It's kind of irritating that we're reprocessing each name, rather than
+            // determining this in a tree structured walk through the source jar.
+            // We always recognize explicit META-INF/versions/<n>/ entries, even if a
+            // repackaged jar forgot to keep the Multi-Release manifest flag.
+            if (matcher.matches()) {
+                try {
+                    String ver = matcher.group(1);
+                    version = Integer.parseInt(ver);
+                    classPath = matcher.group(2);
+                } catch (Exception e) {
+                    // This is unfortunate - someone's playing silly buggers!
+                    // Ignore this file - it won't get seen by jre.
+                    // (should also be impossible to get here given regex).
+                    continue;
                 }
             }
 

@@ -13,13 +13,33 @@ import java.util.List;
 import java.util.Map;
 
 public class OptionsImpl implements Options {
+    private static final String QUICK_MODE_FLAG = "quickmode";
+    private static final String SHOW_SKIPPED_JARS_FLAG = "showskippedjars";
+    private static final String SHOW_SKIPED_JARS_FLAG = "showskipedjars";
     private final Map<String, String> opts;
 
     /**
      * 检查指定的flag或argument是否已被设置
      */
     public boolean isOptionSet(String name) {
-        return opts.containsKey(name);
+        if (opts.containsKey(name)) {
+            return true;
+        }
+        if (SHOW_SKIPPED_JARS_FLAG.equals(name) && opts.containsKey(SHOW_SKIPED_JARS_FLAG)) {
+            return true;
+        }
+        if (SHOW_SKIPED_JARS_FLAG.equals(name) && opts.containsKey(SHOW_SKIPPED_JARS_FLAG)) {
+            return true;
+        }
+        if (opts.containsKey(QUICK_MODE_FLAG)) {
+            return "enableclassfilter".equals(name) ||
+                   "flatoutput".equals(name) ||
+                   "flatnojardir".equals(name) ||
+                   "enableclassnamecache".equals(name) ||
+                   SHOW_SKIPPED_JARS_FLAG.equals(name) ||
+                   SHOW_SKIPED_JARS_FLAG.equals(name);
+        }
+        return false;
     }
 
     private static class DefaultingIntDecoder implements OptionDecoder<Integer> {
@@ -612,7 +632,7 @@ public class OptionsImpl implements Options {
     private static class CFRFactory implements GetOptSinkFactory<Options> {
         @Override
         public List<String> getFlags() {
-            return ListFactory.newList("enableclassfilter", "enableclassnamecache", "flatoutput", "flatnojardir", "showskippedjars");
+            return ListFactory.newList("enableclassfilter", "enableclassnamecache", "flatoutput", "flatnojardir", "quickmode", "showskippedjars", "showskipedjars");
         }
 
         @Override

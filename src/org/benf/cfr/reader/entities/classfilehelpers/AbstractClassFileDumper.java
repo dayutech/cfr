@@ -54,41 +54,38 @@ abstract class AbstractClassFileDumper implements ClassFileDumper {
     void dumpTopHeader(ClassFile classFile, Dumper d, boolean showPackage) {
         if (dcCommonState == null) return;
         Options options = dcCommonState.getOptions();
-        if (!options.getOption(OptionsImpl.SHOW_CFR_VERSION)) {
-            return;
-        }
-        String header = MiscConstants.CFR_HEADER_BRA;
         if (options.getOption(OptionsImpl.SHOW_CFR_VERSION)) {
+            String header = MiscConstants.CFR_HEADER_BRA;
             header += " " + CfrVersionInfo.VERSION_INFO;
-        }
-        header += '.';
+            header += '.';
 
-        d.beginBlockComment(false);
-        d.print(header).newln();
-        if (options.getOption(OptionsImpl.DECOMPILER_COMMENTS)) {
-            TypeUsageInformation typeUsageInformation = d.getTypeUsageInformation();
-            List<JavaTypeInstance> couldNotLoad = ListFactory.newList();
-            for (JavaTypeInstance type : typeUsageInformation.getUsedClassTypes()) {
-                if (type instanceof JavaRefTypeInstance) {
-                    ClassFile loadedClass = null;
-                    try {
-                        loadedClass = dcCommonState.getClassFile(type);
-                    } catch (CannotLoadClassException ignore) {
+            d.beginBlockComment(false);
+            d.print(header).newln();
+            if (options.getOption(OptionsImpl.DECOMPILER_COMMENTS)) {
+                TypeUsageInformation typeUsageInformation = d.getTypeUsageInformation();
+                List<JavaTypeInstance> couldNotLoad = ListFactory.newList();
+                for (JavaTypeInstance type : typeUsageInformation.getUsedClassTypes()) {
+                    if (type instanceof JavaRefTypeInstance) {
+                        ClassFile loadedClass = null;
+                        try {
+                            loadedClass = dcCommonState.getClassFile(type);
+                        } catch (CannotLoadClassException ignore) {
+                        }
+                        if (loadedClass == null) {
+                            couldNotLoad.add(type);
+                        }
                     }
-                    if (loadedClass == null) {
-                        couldNotLoad.add(type);
+                }
+                if (!couldNotLoad.isEmpty()) {
+                    d.newln();
+                    d.print("Could not load the following classes:").newln();
+                    for (JavaTypeInstance type : couldNotLoad) {
+                        d.print(" ").print(type.getRawName()).newln();
                     }
                 }
             }
-            if (!couldNotLoad.isEmpty()) {
-                d.newln();
-                d.print("Could not load the following classes:").newln();
-                for (JavaTypeInstance type : couldNotLoad) {
-                    d.print(" ").print(type.getRawName()).newln();
-                }
-            }
+            d.endBlockComment();
         }
-        d.endBlockComment();
         // package name may be empty, in which case it's ignored by dumper.
         if (showPackage) {
             d.packageName(classFile.getRefClassType());

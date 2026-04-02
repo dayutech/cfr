@@ -21,6 +21,10 @@ import java.util.Set;
  * - 可通过配置文件 cfr_class_filter.conf 添加自定义过滤规则
  */
 public class ClassFilter {
+    private static final String BOOT_INF_CLASSES_PATH_PREFIX = "BOOT-INF/classes/";
+    private static final String WEB_INF_CLASSES_PATH_PREFIX = "WEB-INF/classes/";
+    private static final String BOOT_INF_CLASSES_NAME_PREFIX = "BOOT-INF.classes.";
+    private static final String WEB_INF_CLASSES_NAME_PREFIX = "WEB-INF.classes.";
 
     /**
      * JAR文件名前缀过滤规则（内置规则 + 配置文件规则）
@@ -205,6 +209,8 @@ public class ClassFilter {
             return false;
         }
 
+        className = normalizeClassNameForRuleMatch(className);
+
         // 首先检查JAR级别过滤
         if (currentJarFiltered) {
             if (matchedRule != null) {
@@ -259,11 +265,10 @@ public class ClassFilter {
             return true;
         }
 
-        String normalizedClassPath = classPath;
+        String normalizedClassPath = normalizeClassPathForRuleMatch(classPath);
         if (normalizedClassPath.endsWith(".class")) {
             normalizedClassPath = normalizedClassPath.substring(0, normalizedClassPath.length() - 6);
         }
-        normalizedClassPath = normalizedClassPath.replace('\\', '/');
 
         String bestMatch = null;
         for (String rule : classPathPrefixRules) {
@@ -282,6 +287,41 @@ public class ClassFilter {
         }
 
         return false;
+    }
+
+    private static String normalizeClassPathForRuleMatch(String classPath) {
+        String normalized = classPath.replace('\\', '/');
+        while (normalized.startsWith("/")) {
+            normalized = normalized.substring(1);
+        }
+        normalized = stripPathPrefixIgnoreCase(normalized, BOOT_INF_CLASSES_PATH_PREFIX);
+        normalized = stripPathPrefixIgnoreCase(normalized, WEB_INF_CLASSES_PATH_PREFIX);
+        return normalized;
+    }
+
+    private static String normalizeClassNameForRuleMatch(String className) {
+        String normalized = className.replace('/', '.').replace('\\', '.');
+        normalized = stripNamePrefixIgnoreCase(normalized, BOOT_INF_CLASSES_NAME_PREFIX);
+        normalized = stripNamePrefixIgnoreCase(normalized, WEB_INF_CLASSES_NAME_PREFIX);
+        if (normalized.endsWith(".class")) {
+            normalized = normalized.substring(0, normalized.length() - 6);
+        }
+        return normalized;
+    }
+
+    private static String stripPathPrefixIgnoreCase(String value, String prefix) {
+        return startsWithIgnoreCase(value, prefix) ? value.substring(prefix.length()) : value;
+    }
+
+    private static String stripNamePrefixIgnoreCase(String value, String prefix) {
+        return startsWithIgnoreCase(value, prefix) ? value.substring(prefix.length()) : value;
+    }
+
+    private static boolean startsWithIgnoreCase(String value, String prefix) {
+        if (value.length() < prefix.length()) {
+            return false;
+        }
+        return value.regionMatches(true, 0, prefix, 0, prefix.length());
     }
 
     /**

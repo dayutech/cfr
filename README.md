@@ -74,6 +74,22 @@ org.mylibrary
   - 根据类的完全限定名过滤特定类
   - 示例：`org.springframework` 将匹配 `org.springframework.core.xxx`
   - 支持包前缀（`org.springframework`）和点边界前缀（`java.`、`rx.`）
+  - 对于 fat-jar/war 场景，匹配前会自动规范化 `BOOT-INF/classes/`、`WEB-INF/classes/` 前缀，因此 `io.vertx.`、`javax.` 等规则可直接生效
+
+### 全类名去重缓存（可选）
+
+可通过 `--enableclassnamecache` 启用“已反编译全类名缓存”，避免在同一次任务中重复反编译同名类。
+
+生效条件：
+
+- 必须同时使用 `--flatoutput` 和 `--flatnojardir`
+- 若缺少任一条件，`--enableclassnamecache` 会被忽略（控制台会提示）
+
+行为说明：
+
+- 缓存按全类名层级拆分存储（例如 `com -> test1 -> test2 -> ... -> Test`）
+- 反编译前先查缓存，命中则跳过，未命中则继续反编译并写入缓存
+- 缓存有容量上限，清理时优先移除“命中次数少且层级更深”的条目，以控制内存占用
 
 ### 扩展过滤规则
 
@@ -162,6 +178,9 @@ java -jar cfr.jar ./input-dir --outputdir ./output --flatoutput
 # 平坦输出 + 不保留 JAR 目录前缀（不会生成 test/ 这类 JAR 目录）
 java -jar cfr.jar ./input-dir --outputdir ./output --flatoutput --flatnojardir
 
+# 平坦输出模式下启用全类名去重缓存（避免重复反编译同名类）
+java -jar cfr.jar ./input-dir --outputdir ./output --flatoutput --flatnojardir --enableclassnamecache
+
 # 启用类过滤并在结束后打印被跳过的 JAR 列表
 java -jar cfr.jar ./input-dir --enableclassfilter --showskippedjars --outputdir ./output
 
@@ -173,6 +192,9 @@ java -jar cfr.jar myapp.jar --comments
 
 # 查看过滤选项的帮助
 java -jar cfr.jar --help enableclassfilter
+
+# 查看全类名缓存选项（flag）帮助
+java -jar cfr.jar --help enableclassnamecache
 ```
 
 # 获取 CFR
